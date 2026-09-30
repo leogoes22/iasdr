@@ -10,50 +10,57 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Syne:wght@600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --tinta: #0b1633; --suave: #5b6784; --linha: #dfe4ee; --fundo: #f5f7fb; --papel: #fff;
-    --verde: #2be87b; --verde-texto: #0b7a3e; --verde-claro: #e6fbef; --erro: #c0392b; --raio: 10px;
+    --navy: #070d1c; --painel: #0e1730; --painel2: #121d3a; --linha: #1f2b4a; --texto: #e8edf7; --suave: #8b97b3;
+    --verde: #2be87b; --verde-fundo: rgba(43,232,123,.10); --erro: #ff6b6b; --raio: 10px;
   }
   * { box-sizing: border-box; }
-  html, body { margin: 0; background: var(--fundo); color: var(--tinta); font: 15px/1.5 "DM Sans", system-ui, sans-serif; }
+  html, body { margin: 0; background: var(--navy); color: var(--texto); font: 15px/1.5 "DM Sans", system-ui, sans-serif; }
   h1, h2 { font-family: Syne, sans-serif; letter-spacing: -.01em; margin: 0; }
   h1 { font-size: 22px; line-height: 1.15; }
   h2 { font-size: 18px; margin-bottom: 4px; }
   p { margin: 0; }
   .muted { color: var(--suave); }
   .wrap { max-width: 640px; margin: 0 auto; padding: 18px 16px 110px; }
-  .card { background: var(--papel); border: 1px solid var(--linha); border-radius: 14px; padding: 18px; margin-top: 14px; }
+  .card { background: var(--painel); border: 1px solid var(--linha); border-radius: 14px; padding: 18px; margin-top: 14px; }
   label { display: block; font-weight: 500; font-size: 14px; margin: 14px 0 6px; }
   label small { color: var(--suave); font-weight: 400; }
   input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--linha); border-radius: var(--raio);
-    font: inherit; color: var(--tinta); background: #fff; }
+    font: inherit; color: var(--texto); background: var(--navy); color-scheme: dark; }
+  input::placeholder, textarea::placeholder { color: #56627f; }
   textarea { min-height: 96px; resize: vertical; }
-  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--verde-texto); outline-offset: 1px; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--verde); outline-offset: 1px; }
   .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
   .tres { display: grid; grid-template-columns: 2fr 1fr; gap: 0 12px; }
   @media (max-width: 420px) { .duas, .tres { grid-template-columns: 1fr; } }
   button { font: 500 15px "DM Sans", sans-serif; border-radius: var(--raio); padding: 10px 16px; cursor: pointer;
-    border: 1px solid var(--linha); background: #fff; color: var(--tinta); }
-  button.principal { background: var(--tinta); border-color: var(--tinta); color: #fff; }
-  button.leve { border: 0; background: none; color: var(--verde-texto); padding: 6px 0; }
-  button:disabled { opacity: .5; cursor: not-allowed; }
+    border: 1px solid var(--linha); background: transparent; color: var(--texto); }
+  button.principal { background: var(--verde); border-color: var(--verde); color: var(--navy); font-weight: 700; }
+  button.leve { border: 0; background: none; color: var(--verde); padding: 6px 0; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
   .erro { color: var(--erro); font-size: 14px; margin-top: 10px; }
+  .selo { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--verde); border: 1px solid rgba(43,232,123,.35); border-radius: 99px; padding: 3px 10px; margin-top: 8px; }
 
-  /* entrada com PIN */
+/* entrada com PIN */
   .porta { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
   .porta .card { width: 100%; max-width: 380px; text-align: center; padding: 28px 22px; }
+  .marca-lv { font: 700 15px Syne, sans-serif; color: var(--suave); margin-bottom: 18px; }
+  .marca-lv b { color: var(--verde); }
+  .ok-check { width: 64px; height: 64px; border-radius: 50%; background: var(--verde-fundo); border: 2px solid var(--verde); display: grid; place-items: center; margin: 8px auto 12px; }
+  .ok-check svg { width: 30px; height: 30px; stroke: var(--verde); stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 30; stroke-dashoffset: 0; }
+  @media (prefers-reduced-motion: no-preference) { .ok-check svg { animation: tracar .45s ease-out both; } @keyframes tracar { from { stroke-dashoffset: 30; } } }
   .pin-in { font: 700 28px Syne, sans-serif; letter-spacing: .4em; text-align: center; padding: 12px; margin-top: 18px; }
 
   /* passos */
   .passos { display: flex; gap: 6px; overflow-x: auto; padding: 14px 0 2px; scrollbar-width: none; }
   .passos::-webkit-scrollbar { display: none; }
-  .passos button { flex: 0 0 auto; padding: 7px 12px; font-size: 13px; border-radius: 99px; background: #fff; }
-  .passos button[aria-current="step"] { background: var(--tinta); color: #fff; border-color: var(--tinta); }
-  .passos button.feito { border-color: var(--verde-texto); color: var(--verde-texto); }
+  .passos button { flex: 0 0 auto; padding: 7px 12px; font-size: 13px; border-radius: 99px; background: var(--painel); }
+  .passos button[aria-current="step"] { background: var(--verde); color: var(--navy); border-color: var(--verde); font-weight: 700; }
+  .passos button.feito { border-color: rgba(43,232,123,.5); color: var(--verde); }
   .passo { display: none; } .passo.ativo { display: block; }
 
   /* balão de prévia */
-  .conversa { background: #efe7dd; border-radius: 12px; padding: 14px; margin-top: 12px; }
-  .balao { background: #fff; border-radius: 0 10px 10px 10px; padding: 9px 12px; max-width: 92%; font-size: 14.5px; box-shadow: 0 1px 0 rgba(11,22,51,.08); }
+  .conversa { background: #0b141a; border: 1px solid var(--linha); border-radius: 12px; padding: 14px; margin-top: 12px; }
+  .balao { background: #202c33; color: #e9edef; border-radius: 0 10px 10px 10px; padding: 9px 12px; max-width: 92%; font-size: 14.5px; }
   .balao b { font-weight: 700; }
   .balao .hora { display: block; text-align: right; font-size: 11px; color: var(--suave); margin-top: 2px; }
 
@@ -62,22 +69,22 @@
   .dia:first-of-type { border-top: 0; }
   .dia label { margin: 0; display: flex; gap: 8px; align-items: center; font-weight: 500; }
   .dia input[type=checkbox] { width: 18px; height: 18px; }
-  .dia input[type=time]:disabled { background: var(--fundo); color: var(--suave); }
+  .dia input[type=time]:disabled { opacity: .4; }
 
   .opcoes { display: grid; gap: 8px; margin-top: 6px; }
   .opcao { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--linha); border-radius: var(--raio); padding: 10px 12px; cursor: pointer; }
   .opcao input { width: auto; margin-top: 3px; }
-  .opcao:has(input:checked) { border-color: var(--verde-texto); background: var(--verde-claro); }
+  .opcao:has(input:checked) { border-color: var(--verde); background: var(--verde-fundo); }
   .opcao span small { display: block; color: var(--suave); }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
   .chips label { margin: 0; display: flex; gap: 6px; align-items: center; border: 1px solid var(--linha); border-radius: 99px; padding: 6px 12px; font-weight: 400; cursor: pointer; }
-  .chips label:has(input:checked) { border-color: var(--verde-texto); background: var(--verde-claro); }
+  .chips label:has(input:checked) { border-color: var(--verde); background: var(--verde-fundo); }
   .chips input { width: auto; }
 
   .linha-lista { border: 1px solid var(--linha); border-radius: var(--raio); padding: 12px; margin-top: 10px; position: relative; }
   .linha-lista .tirar { position: absolute; top: 6px; right: 8px; border: 0; background: none; color: var(--suave); font-size: 20px; padding: 2px 6px; }
   .linha-lista label:first-of-type { margin-top: 0; }
-  .dica { background: var(--verde-claro); border-radius: var(--raio); padding: 10px 12px; font-size: 14px; margin-top: 12px; }
+  .dica { background: var(--verde-fundo); border: 1px solid rgba(43,232,123,.25); border-radius: var(--raio); padding: 10px 12px; font-size: 14px; margin-top: 12px; }
 
   /* linha do tempo */
   .tempo { list-style: none; margin: 14px 0 0; padding: 0; }
@@ -86,22 +93,23 @@
   .tempo li:last-child::before { display: none; }
   .tempo .quando { font-weight: 700; text-align: right; font-size: 14px; }
   .tempo .marca { width: 14px; height: 14px; border-radius: 50%; margin-top: 3px; background: var(--verde); position: relative; z-index: 1; }
-  .tempo .nota .marca { background: #fff; border: 2px solid var(--suave); }
-  .tempo .transf .marca { background: var(--tinta); }
+  .tempo .nota .marca { background: var(--painel); border: 2px solid var(--suave); }
+  .tempo .transf .marca { background: var(--texto); }
   .tempo small { display: block; color: var(--suave); }
 
   .resumo dt { font-weight: 500; margin-top: 10px; }
   .resumo dd { margin: 2px 0 0; color: var(--suave); }
 
-  .barra { position: fixed; left: 0; right: 0; bottom: 0; background: var(--papel); border-top: 1px solid var(--linha); padding: 10px 16px; }
+  .barra { position: fixed; left: 0; right: 0; bottom: 0; background: var(--painel); border-top: 1px solid var(--linha); padding: 10px 16px; }
   .barra .in { max-width: 640px; margin: 0 auto; display: flex; gap: 10px; justify-content: space-between; align-items: center; }
-  .salvo { background: var(--verde-claro); border: 1px solid var(--verde-texto); color: var(--verde-texto); border-radius: 14px; padding: 16px; margin-top: 14px; }
+  .salvo { background: var(--verde-fundo); border: 1px solid var(--verde); color: var(--verde); border-radius: 14px; padding: 16px; margin-top: 14px; }
 </style>
 </head>
 <body>
 
 <div id="telaPorta" class="porta">
-  <div class="card">
+  <div class="card" id="cardPorta">
+    <div class="marca-lv">Lead<b>Vox</b></div>
     <h1>Sua IA de atendimento</h1>
     <p class="muted" style="margin-top:6px">Digite o PIN de 6 números que a LeadVox passou para você.</p>
     <input id="pin" class="pin-in" inputmode="numeric" maxlength="6" autocomplete="one-time-code" aria-label="PIN">
@@ -114,6 +122,7 @@
   <div class="wrap">
     <h1 id="titulo">Configuração da IA</h1>
     <p class="muted" id="subtitulo"></p>
+    <span class="selo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Acesso liberado</span>
     <nav class="passos" id="passos" aria-label="Etapas"></nav>
 
     <!-- 1 IA -->
@@ -208,7 +217,7 @@
     <section class="passo" data-passo="Equipe">
       <div class="card">
         <h2>Departamentos</h2>
-        <p class="muted">O primeiro é o Comercial, para onde vão os clientes qualificados.</p>
+        <p class="muted">O primeiro é o principal, para onde vão os clientes que querem comprar. Crie os outros setores que a loja tiver (documentação, pós-venda, consignação…) e diga o que vai para cada um: a IA usa isso para escolher o setor certo.</p>
         <div id="listaDeps"></div>
         <button class="leve" id="addDep">Adicionar departamento</button>
         <div class="dica" id="dicaTicket" hidden></div>
@@ -217,12 +226,12 @@
         <h2>Distribuição dos clientes</h2>
         <div class="opcoes">
           <label class="opcao"><input type="radio" name="dist" value="departamento"><span>Para o departamento<small>O cliente cai na fila e quem estiver livre assume.</small></span></label>
-          <label class="opcao"><input type="radio" name="dist" value="rodizio"><span>Rodízio entre vendedores<small>Um cliente para cada vendedor, em sequência.</small></span></label>
+          <label class="opcao"><input type="radio" name="dist" value="rodizio"><span>Rodízio entre atendentes<small>Um cliente para cada atendente do setor, em sequência. Setor sem atendente cai na fila.</small></span></label>
         </div>
-        <h2 style="margin-top:20px">Vendedores</h2>
-        <p class="muted">Também usados quando o cliente diz que já fala com alguém.</p>
+        <h2 style="margin-top:20px">Atendentes</h2>
+        <p class="muted">Até 20. No rodízio, cada cliente vai para o próximo atendente do setor escolhido. Também são usados quando o cliente diz que já fala com alguém.</p>
         <div id="listaVend"></div>
-        <button class="leve" id="addVend">Adicionar vendedor</button>
+        <button class="leve" id="addVend">Adicionar atendente</button>
         <label for="respConsig">Quem cuida de cliente que quer vender ou consignar</label>
         <select id="respConsig"></select>
       </div>
@@ -340,9 +349,13 @@ async function entrar() {
     try { sessionStorage.setItem('pin_' + CHAVE, PIN); } catch (e) {}
     CANAL = j.canal || ''; FONTE = j.fonte || '';
     CFG = mesclar(j.config || {});
+    if ($('pin').value) {
+      $('cardPorta').innerHTML = '<div class="marca-lv">Lead<b>Vox</b></div><div class="ok-check"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><h1>Acesso liberado</h1><p class="muted" style="margin-top:6px">Abrindo a configuração da sua IA…</p>';
+      await new Promise(r => setTimeout(r, 1100));
+    }
     abrirApp();
   } catch (e) { PIN = ''; try { sessionStorage.removeItem('pin_' + CHAVE); } catch (x) {} mostrarErroPorta(e.message); }
-  $('btEntrar').disabled = false; $('btEntrar').textContent = 'Entrar';
+  if ($('btEntrar')) { $('btEntrar').disabled = false; $('btEntrar').textContent = 'Entrar'; }
 }
 function mostrarErroPorta(m) { $('erroPorta').hidden = false; $('erroPorta').textContent = m; }
 function mesclar(c) {
@@ -390,13 +403,15 @@ function renderDeps(lista) {
     <div class="linha-lista" data-dep>
       ${i > 0 ? '<button class="tirar" type="button" data-tirar aria-label="Remover departamento">×</button>' : ''}
       <div class="tres">
-        <div><label>Nome</label><input data-f="nome" maxlength="40" value="${esc(d.nome || '')}" ${i === 0 ? 'placeholder="Comercial"' : ''}></div>
+        <div><label>${i === 0 ? 'Setor principal' : 'Setor'}</label><input data-f="nome" maxlength="40" value="${esc(d.nome || '')}" placeholder="${i === 0 ? 'Comercial' : 'Ex.: Documentação'}"></div>
         <div><label>ID da fila</label><input data-f="queueId" inputmode="numeric" value="${esc(d.queueId || '')}"></div>
       </div>
-      <label>O que vai para ele</label><input data-f="finalidade" maxlength="120" value="${esc(d.finalidade || '')}" placeholder="Ex.: documento, boleto, garantia">
+      <label>O que vai para ele</label><input data-f="finalidade" maxlength="160" value="${esc(d.finalidade || '')}" placeholder="${i === 0 ? 'Compra, troca, financiamento, visita' : 'Ex.: transferência, recibo, IPVA, multa'}">
     </div>`).join('');
 }
+function nomesDeps() { return lerLista('[data-dep]', ['nome']).map(d => d.nome).filter(Boolean); }
 function renderVend(lista) {
+  const deps = nomesDeps(); const d0 = deps[0] || 'Comercial';
   $('listaVend').innerHTML = lista.map(v => `
     <div class="linha-lista" data-vend>
       <button class="tirar" type="button" data-tirar aria-label="Remover vendedor">×</button>
@@ -404,22 +419,27 @@ function renderVend(lista) {
         <div><label>Nome</label><input data-f="nome" maxlength="40" value="${esc(v.nome || '')}"></div>
         <div><label>ID do usuário</label><input data-f="userId" inputmode="numeric" value="${esc(v.userId || '')}"></div>
       </div>
-      <label>Apelidos <small>(separados por vírgula)</small></label><input data-f="apelidos" value="${esc((v.apelidos || []).join(', '))}" placeholder="Ex.: Bia, Beatriz">
-    </div>`).join('') || '<p class="muted" style="margin-top:10px">Nenhum vendedor cadastrado.</p>';
+      <div class="duas">
+        <div><label>Setor</label><select data-f="departamento">${(deps.length ? deps : [d0]).map(n => `<option ${String(v.departamento || d0) === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
+        <div><label>Apelidos <small>(vírgula)</small></label><input data-f="apelidos" value="${esc((v.apelidos || []).join(', '))}" placeholder="Bia, Beatriz"></div>
+      </div>
+    </div>`).join('') || '<p class="muted" style="margin-top:10px">Nenhum atendente cadastrado.</p>';
+  $('addVend').disabled = lista.length >= 20;
   atualizarResp();
 }
 function lerLista(sel, campos) {
   return [...document.querySelectorAll(sel)].map(el => { const o = {}; campos.forEach(f => o[f] = el.querySelector(`[data-f="${f}"]`).value.trim()); return o; });
 }
-function lerVend() { return lerLista('[data-vend]', ['nome', 'userId', 'apelidos']).filter(v => v.nome || v.userId).map(v => ({ ...v, apelidos: v.apelidos.split(',').map(a => a.trim()).filter(Boolean) })); }
+function lerVend() { return lerLista('[data-vend]', ['nome', 'userId', 'departamento', 'apelidos']).filter(v => v.nome || v.userId).map(v => ({ ...v, apelidos: v.apelidos.split(',').map(a => a.trim()).filter(Boolean) })); }
 function atualizarResp() {
   const atual = $('respConsig').value || String(CFG.distribuicao.responsavelVendaConsignacao || '');
   const vs = lerVend().filter(v => v.userId);
   $('respConsig').innerHTML = '<option value="">Ninguém em especial (vai para o Comercial)</option>' + vs.map(v => `<option value="${esc(v.userId)}">${esc(v.nome)}</option>`).join('');
   $('respConsig').value = vs.some(v => v.userId === atual) ? atual : '';
 }
-$('addDep').addEventListener('click', () => { const l = lerLista('[data-dep]', ['nome', 'queueId', 'finalidade']); l.push({}); renderDeps(l); });
-$('addVend').addEventListener('click', () => { const l = lerVend(); l.push({}); renderVend(l); });
+$('addDep').addEventListener('click', () => { const l = lerLista('[data-dep]', ['nome', 'queueId', 'finalidade']); if (l.length >= 15) return; l.push({}); renderDeps(l); renderVend(lerVend()); });
+document.addEventListener('change', (ev) => { if (ev.target.closest('[data-dep]') && ev.target.dataset.f === 'nome') renderVend(lerVend()); });
+$('addVend').addEventListener('click', () => { const l = lerVend(); if (l.length >= 20) return; l.push({}); renderVend(l); });
 document.addEventListener('click', (ev) => {
   const t = ev.target.closest('[data-tirar]');
   if (t) { const emVend = !!t.closest('#listaVend'); t.parentElement.remove(); if (emVend && !document.querySelector('[data-vend]')) renderVend([]); atualizarResp(); atualizar(); return; }
@@ -531,7 +551,7 @@ function montarResumo() {
     ['Horário da equipe', dias],
     ['Preço', c.regras.informaPreco ? 'A IA pode informar' : 'Só o consultor informa'],
     ['Departamentos', deps],
-    ['Distribuição', c.distribuicao.modo === 'rodizio' ? 'Rodízio entre ' + c.distribuicao.vendedores.length + ' vendedores' : 'Para o departamento'],
+    ['Distribuição', c.distribuicao.modo === 'rodizio' ? 'Rodízio entre ' + c.distribuicao.vendedores.length + ' atendentes, por setor' : 'Para a fila do setor'],
     ['Lead', c.lead.enviarAutoCerto ? 'Vai para o AutoCerto e avisa o gerente' : 'Transferido para o Comercial'],
     ['Follow-up', fmt(c.followup.primeiroMin) + ' e ' + fmt(c.followup.segundoMin) + ', transfere ' + tQ]
   ];
