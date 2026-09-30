@@ -38,6 +38,16 @@
   button.leve { border: 0; background: none; color: var(--verde); padding: 6px 0; }
   button:disabled { opacity: .45; cursor: not-allowed; }
   .erro { color: var(--erro); font-size: 14px; margin-top: 10px; }
+  .liga-lin { display: flex; gap: 14px; align-items: center; justify-content: space-between; }
+  .liga-lin b { font: 700 17px Syne, sans-serif; display: block; }
+  .ponto-st { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--suave); margin-right: 8px; vertical-align: middle; }
+  .liga.on .ponto-st { background: var(--verde); box-shadow: 0 0 0 4px rgba(43,232,123,.18); }
+  .liga.on { border-color: rgba(43,232,123,.45); }
+  .switch { flex: 0 0 auto; width: 56px; height: 32px; border-radius: 99px; padding: 0; border: 1px solid var(--linha); background: var(--navy); position: relative; }
+  .switch span { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: var(--suave); transition: transform .18s, background .18s; }
+  .switch[aria-checked="true"] { background: var(--verde); border-color: var(--verde); }
+  .switch[aria-checked="true"] span { transform: translateX(24px); background: var(--navy); }
+  @media (prefers-reduced-motion: reduce) { .switch span { transition: none; } }
   .selo { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--verde); border: 1px solid rgba(43,232,123,.35); border-radius: 99px; padding: 3px 10px; margin-top: 8px; }
 
 /* entrada com PIN */
@@ -123,6 +133,13 @@
     <h1 id="titulo">Configuração da IA</h1>
     <p class="muted" id="subtitulo"></p>
     <span class="selo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Acesso liberado</span>
+    <div class="card liga" id="cardLiga">
+      <div class="liga-lin">
+        <div><b><span class="ponto-st"></span><span id="ligaTitulo">Sua IA</span></b><p class="muted" id="ligaTexto" style="margin-top:4px"></p></div>
+        <button type="button" id="btLiga" class="switch" role="switch" aria-checked="false" aria-label="Ligar ou desligar a IA"><span></span></button>
+      </div>
+      <p class="erro" id="erroLiga" hidden></p>
+    </div>
     <nav class="passos" id="passos" aria-label="Etapas"></nav>
 
     <!-- 1 IA -->
@@ -306,6 +323,17 @@ const API = q.get('api') || '';
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let PIN = '', CFG = null, CANAL = '', FONTE = '', passoAtual = 0, ticket = null;
+let ATIVO = false, BLOQ = false, CONFIGURADA = false;
+function renderLiga() {
+  const card = $('cardLiga'), bt = $('btLiga');
+  card.classList.toggle('on', ATIVO && !BLOQ);
+  bt.setAttribute('aria-checked', String(ATIVO && !BLOQ));
+  if (BLOQ) { $('ligaTitulo').textContent = 'IA suspensa'; $('ligaTexto').textContent = 'A LeadVox suspendeu a IA desta loja. Fale com o suporte para reativar.'; bt.disabled = true; return; }
+  $('ligaTitulo').textContent = ATIVO ? 'Sua IA está ligada' : 'Sua IA está desligada';
+  $('ligaTexto').textContent = ATIVO ? 'Ela está respondendo os clientes no WhatsApp.'
+    : (CONFIGURADA ? 'Os clientes não recebem resposta automática. Ligue quando quiser.' : 'Salve a configuração abaixo para poder ligar.');
+  bt.disabled = !ATIVO && !CONFIGURADA;
+}
 
 const DIAS = [['seg', 'Segunda'], ['ter', 'Terça'], ['qua', 'Quarta'], ['qui', 'Quinta'], ['sex', 'Sexta'], ['sab', 'Sábado'], ['dom', 'Domingo']];
 const PADRAO = {
@@ -348,6 +376,7 @@ async function entrar() {
     const j = await chamar({ acao: 'carregar' });
     try { sessionStorage.setItem('pin_' + CHAVE, PIN); } catch (e) {}
     CANAL = j.canal || ''; FONTE = j.fonte || '';
+    const cc = j.config || {}; ATIVO = cc.ativo === true; BLOQ = cc.bloqueado === true; CONFIGURADA = cc.configurada === true;
     CFG = mesclar(j.config || {});
     if ($('pin').value) {
       $('cardPorta').innerHTML = '<div class="marca-lv">Lead<b>Vox</b></div><div class="ok-check"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><h1>Acesso liberado</h1><p class="muted" style="margin-top:6px">Abrindo a configuração da sua IA…</p>';
@@ -392,7 +421,7 @@ function abrirApp() {
   const pm = c.followup.transferir.personalizadoMin;
   if (pm) { const u = pm % 1440 === 0 ? 1440 : pm % 60 === 0 ? 60 : 1; $('persU').value = String(u); $('persN').value = pm / u; }
   $('passos').innerHTML = [...document.querySelectorAll('.passo')].map((s, i) => `<button type="button" data-ir="${i}">${i + 1}. ${s.dataset.passo}</button>`).join('');
-  irPara(0); atualizar(); mostrarDicaTicket();
+  irPara(0); atualizar(); mostrarDicaTicket(); renderLiga();
 }
 function marcar(nome, valor) { document.querySelectorAll(`input[name="${nome}"]`).forEach(i => i.checked = i.value === valor); }
 function valor(nome) { const i = document.querySelector(`input[name="${nome}"]:checked`); return i ? i.value : null; }
@@ -558,14 +587,24 @@ function montarResumo() {
   $('resumo').innerHTML = linhas.map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('');
 }
 
+$('btLiga').addEventListener('click', async () => {
+  const ligar = !ATIVO;
+  if (!ligar && !confirm('Desligar a IA? Os clientes deixam de receber resposta automática até você ligar de novo.')) return;
+  const bt = $('btLiga'); bt.disabled = true; $('erroLiga').hidden = true;
+  try { const j = await chamar({ acao: 'ativo', ligar }); ATIVO = j.ativo === true; }
+  catch (e) { $('erroLiga').hidden = false; $('erroLiga').textContent = e.message; }
+  renderLiga();
+});
+
 $('btSalvar').addEventListener('click', async () => {
   const bt = $('btSalvar'); bt.disabled = true; bt.textContent = 'Salvando…'; $('erroSalvar').hidden = true; $('salvo').hidden = true;
   try {
     const cfg = coletar();
     const j = await chamar({ acao: 'salvar', config: cfg });
     CFG = mesclar({ ...CFG, ...cfg });
+    CONFIGURADA = true; renderLiga();
     $('salvo').hidden = false;
-    $('salvo').innerHTML = `<b>Configuração salva.</b> Esta é a versão ${esc(j.versao)}. Você pode voltar aqui e mudar o que quiser quando precisar.`;
+    $('salvo').innerHTML = `<b>Configuração salva.</b> Esta é a versão ${esc(j.versao)}. Você pode voltar aqui e mudar o que quiser quando precisar.${ATIVO || BLOQ ? '' : ' Para a IA começar a responder, ligue a chave lá no topo.'}`;
   } catch (e) { $('erroSalvar').hidden = false; $('erroSalvar').textContent = e.message; }
   bt.disabled = false; bt.textContent = 'Salvar configuração';
 });
