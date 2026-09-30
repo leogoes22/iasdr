@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Sua IA de atendimento</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Syne:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --tinta: #0b1633; --suave: #5b6784; --linha: #dfe4ee; --fundo: #f5f7fb; --papel: #fff;
+    --verde: #2be87b; --verde-texto: #0b7a3e; --verde-claro: #e6fbef; --erro: #c0392b; --raio: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--fundo); color: var(--tinta); font: 15px/1.5 "DM Sans", system-ui, sans-serif; }
+  h1, h2 { font-family: Syne, sans-serif; letter-spacing: -.01em; margin: 0; }
+  h1 { font-size: 22px; line-height: 1.15; }
+  h2 { font-size: 18px; margin-bottom: 4px; }
+  p { margin: 0; }
+  .muted { color: var(--suave); }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 18px 16px 110px; }
+  .card { background: var(--papel); border: 1px solid var(--linha); border-radius: 14px; padding: 18px; margin-top: 14px; }
+  label { display: block; font-weight: 500; font-size: 14px; margin: 14px 0 6px; }
+  label small { color: var(--suave); font-weight: 400; }
+  input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--linha); border-radius: var(--raio);
+    font: inherit; color: var(--tinta); background: #fff; }
+  textarea { min-height: 96px; resize: vertical; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--verde-texto); outline-offset: 1px; }
+  .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
+  .tres { display: grid; grid-template-columns: 2fr 1fr; gap: 0 12px; }
+  @media (max-width: 420px) { .duas, .tres { grid-template-columns: 1fr; } }
+  button { font: 500 15px "DM Sans", sans-serif; border-radius: var(--raio); padding: 10px 16px; cursor: pointer;
+    border: 1px solid var(--linha); background: #fff; color: var(--tinta); }
+  button.principal { background: var(--tinta); border-color: var(--tinta); color: #fff; }
+  button.leve { border: 0; background: none; color: var(--verde-texto); padding: 6px 0; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .erro { color: var(--erro); font-size: 14px; margin-top: 10px; }
+
+  /* entrada com PIN */
+  .porta { min-height: 100vh; display: grid; place-items: center; padding: 24px 16px; }
+  .porta .card { width: 100%; max-width: 380px; text-align: center; padding: 28px 22px; }
+  .pin-in { font: 700 28px Syne, sans-serif; letter-spacing: .4em; text-align: center; padding: 12px; margin-top: 18px; }
+
+  /* passos */
+  .passos { display: flex; gap: 6px; overflow-x: auto; padding: 14px 0 2px; scrollbar-width: none; }
+  .passos::-webkit-scrollbar { display: none; }
+  .passos button { flex: 0 0 auto; padding: 7px 12px; font-size: 13px; border-radius: 99px; background: #fff; }
+  .passos button[aria-current="step"] { background: var(--tinta); color: #fff; border-color: var(--tinta); }
+  .passos button.feito { border-color: var(--verde-texto); color: var(--verde-texto); }
+  .passo { display: none; } .passo.ativo { display: block; }
+
+  /* balão de prévia */
+  .conversa { background: #efe7dd; border-radius: 12px; padding: 14px; margin-top: 12px; }
+  .balao { background: #fff; border-radius: 0 10px 10px 10px; padding: 9px 12px; max-width: 92%; font-size: 14.5px; box-shadow: 0 1px 0 rgba(11,22,51,.08); }
+  .balao b { font-weight: 700; }
+  .balao .hora { display: block; text-align: right; font-size: 11px; color: var(--suave); margin-top: 2px; }
+
+  /* horário */
+  .dia { display: grid; grid-template-columns: 92px 1fr 1fr; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--linha); }
+  .dia:first-of-type { border-top: 0; }
+  .dia label { margin: 0; display: flex; gap: 8px; align-items: center; font-weight: 500; }
+  .dia input[type=checkbox] { width: 18px; height: 18px; }
+  .dia input[type=time]:disabled { background: var(--fundo); color: var(--suave); }
+
+  .opcoes { display: grid; gap: 8px; margin-top: 6px; }
+  .opcao { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--linha); border-radius: var(--raio); padding: 10px 12px; cursor: pointer; }
+  .opcao input { width: auto; margin-top: 3px; }
+  .opcao:has(input:checked) { border-color: var(--verde-texto); background: var(--verde-claro); }
+  .opcao span small { display: block; color: var(--suave); }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+  .chips label { margin: 0; display: flex; gap: 6px; align-items: center; border: 1px solid var(--linha); border-radius: 99px; padding: 6px 12px; font-weight: 400; cursor: pointer; }
+  .chips label:has(input:checked) { border-color: var(--verde-texto); background: var(--verde-claro); }
+  .chips input { width: auto; }
+
+  .linha-lista { border: 1px solid var(--linha); border-radius: var(--raio); padding: 12px; margin-top: 10px; position: relative; }
+  .linha-lista .tirar { position: absolute; top: 6px; right: 8px; border: 0; background: none; color: var(--suave); font-size: 20px; padding: 2px 6px; }
+  .linha-lista label:first-of-type { margin-top: 0; }
+  .dica { background: var(--verde-claro); border-radius: var(--raio); padding: 10px 12px; font-size: 14px; margin-top: 12px; }
+
+  /* linha do tempo */
+  .tempo { list-style: none; margin: 14px 0 0; padding: 0; }
+  .tempo li { display: grid; grid-template-columns: 64px 14px 1fr; gap: 10px; align-items: start; padding-bottom: 14px; position: relative; }
+  .tempo li::before { content: ""; position: absolute; left: 80px; top: 16px; bottom: -2px; width: 2px; background: var(--linha); }
+  .tempo li:last-child::before { display: none; }
+  .tempo .quando { font-weight: 700; text-align: right; font-size: 14px; }
+  .tempo .marca { width: 14px; height: 14px; border-radius: 50%; margin-top: 3px; background: var(--verde); position: relative; z-index: 1; }
+  .tempo .nota .marca { background: #fff; border: 2px solid var(--suave); }
+  .tempo .transf .marca { background: var(--tinta); }
+  .tempo small { display: block; color: var(--suave); }
+
+  .resumo dt { font-weight: 500; margin-top: 10px; }
+  .resumo dd { margin: 2px 0 0; color: var(--suave); }
+
+  .barra { position: fixed; left: 0; right: 0; bottom: 0; background: var(--papel); border-top: 1px solid var(--linha); padding: 10px 16px; }
+  .barra .in { max-width: 640px; margin: 0 auto; display: flex; gap: 10px; justify-content: space-between; align-items: center; }
+  .salvo { background: var(--verde-claro); border: 1px solid var(--verde-texto); color: var(--verde-texto); border-radius: 14px; padding: 16px; margin-top: 14px; }
+</style>
+</head>
+<body>
+
+<div id="telaPorta" class="porta">
+  <div class="card">
+    <h1>Sua IA de atendimento</h1>
+    <p class="muted" style="margin-top:6px">Digite o PIN de 6 números que a LeadVox passou para você.</p>
+    <input id="pin" class="pin-in" inputmode="numeric" maxlength="6" autocomplete="one-time-code" aria-label="PIN">
+    <button id="btEntrar" class="principal" style="width:100%;margin-top:14px">Entrar</button>
+    <p id="erroPorta" class="erro" hidden></p>
+  </div>
+</div>
+
+<div id="telaApp" hidden>
+  <div class="wrap">
+    <h1 id="titulo">Configuração da IA</h1>
+    <p class="muted" id="subtitulo"></p>
+    <nav class="passos" id="passos" aria-label="Etapas"></nav>
+
+    <!-- 1 IA -->
+    <section class="passo" data-passo="Sua IA">
+      <div class="card">
+        <h2>Quem atende o seu cliente</h2>
+        <p class="muted">É assim que a IA se apresenta no WhatsApp.</p>
+        <div class="duas">
+          <div><label for="iaNome">Nome da IA</label><input id="iaNome" maxlength="30" placeholder="Ex.: Megui"></div>
+          <div><label for="iaGenero">Ela ou ele?</label>
+            <select id="iaGenero"><option value="feminino">Ela (feminino)</option><option value="masculino">Ele (masculino)</option></select></div>
+        </div>
+        <label>Jeito de falar</label>
+        <div class="opcoes" id="iaTom">
+          <label class="opcao"><input type="radio" name="tom" value="acolhedor"><span>Acolhedor<small>Simpático e próximo, sem exagero.</small></span></label>
+          <label class="opcao"><input type="radio" name="tom" value="descontraido"><span>Descontraído<small>Leve, com a linguagem do dia a dia.</small></span></label>
+          <label class="opcao"><input type="radio" name="tom" value="formal"><span>Mais formal<small>Educado e direto, sem gírias.</small></span></label>
+        </div>
+        <label for="iaDif">Diferenciais da loja <small>(um por linha, até 6)</small></label>
+        <textarea id="iaDif" placeholder="Financiamento facilitado&#10;Avaliamos sua moto na troca"></textarea>
+        <div class="conversa" aria-label="Prévia da apresentação">
+          <div class="balao" id="previa"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2 Loja -->
+    <section class="passo" data-passo="A loja">
+      <div class="card">
+        <h2>Dados da loja</h2>
+        <p class="muted">A IA usa isso para passar endereço, contato e convidar para a visita.</p>
+        <label for="ljNome">Nome da loja</label><input id="ljNome" maxlength="60">
+        <label>A loja vende</label>
+        <div class="chips" id="ljTipo">
+          <label><input type="radio" name="tipo" value="moto"> Motos</label>
+          <label><input type="radio" name="tipo" value="carro"> Carros</label>
+          <label><input type="radio" name="tipo" value="ambos"> Motos e carros</label>
+        </div>
+        <label for="ljEnd">Endereço completo</label><input id="ljEnd" maxlength="160" placeholder="Rua, número, bairro, cidade - UF, CEP">
+        <div class="tres">
+          <div><label for="ljCidade">Cidade</label><input id="ljCidade" maxlength="60"></div>
+          <div><label for="ljUf">UF</label><input id="ljUf" maxlength="2"></div>
+        </div>
+        <label for="ljBairro">Bairro</label><input id="ljBairro" maxlength="60">
+        <label for="ljMapa">Link do Google Maps</label><input id="ljMapa" placeholder="https://maps.app.goo.gl/…">
+        <div class="duas">
+          <div><label for="ljSite">Site</label><input id="ljSite" placeholder="https://…"></div>
+          <div><label for="ljInsta">Instagram</label><input id="ljInsta" placeholder="@sualoja"></div>
+        </div>
+        <label for="ljTel">Telefone da loja</label><input id="ljTel" maxlength="20">
+      </div>
+    </section>
+
+    <!-- 3 Horário -->
+    <section class="passo" data-passo="Horário">
+      <div class="card">
+        <h2>Horário da equipe</h2>
+        <p class="muted">A IA atende a qualquer hora. Este é o horário em que tem gente da loja para assumir o cliente, e os follow-ups só saem dentro dele.</p>
+        <div id="dias" style="margin-top:10px"></div>
+        <label for="feriados">Feriados em que a loja fecha <small>(dia-mês, separados por vírgula)</small></label>
+        <input id="feriados" placeholder="01-01, 04-21, 12-25">
+      </div>
+    </section>
+
+    <!-- 4 Regras -->
+    <section class="passo" data-passo="Regras">
+      <div class="card">
+        <h2>Regras de atendimento</h2>
+        <label>A IA pode informar o preço?</label>
+        <div class="opcoes">
+          <label class="opcao"><input type="radio" name="preco" value="nao"><span>Não, quem passa valor é o consultor<small>Ela nunca fala preço, nem aproximado.</small></span></label>
+          <label class="opcao"><input type="radio" name="preco" value="sim"><span>Sim, pode informar<small>Ela só repete o preço que está no estoque.</small></span></label>
+        </div>
+        <label>No horário da equipe, a IA</label>
+        <div class="opcoes">
+          <label class="opcao"><input type="radio" name="modo" value="completo"><span>Faz o atendimento completo<small>Mostra o veículo, manda foto, qualifica e passa para o consultor.</small></span></label>
+          <label class="opcao"><input type="radio" name="modo" value="abertura_curta"><span>Só recebe e passa rápido<small>Pega o nome, confirma o interesse e já transfere.</small></span></label>
+        </div>
+        <label class="opcao" style="margin-top:14px"><input type="checkbox" id="jaAtendido"><span>Perguntar se o cliente já fala com alguém da equipe<small>Se sim, ela passa direto para esse vendedor.</small></span></label>
+        <label>No financiamento, a IA coleta</label>
+        <div class="chips" id="coleta">
+          <label><input type="checkbox" value="entrada"> Entrada</label>
+          <label><input type="checkbox" value="troca"> Veículo na troca</label>
+          <label><input type="checkbox" value="cpf"> CPF</label>
+          <label><input type="checkbox" value="nascimento"> Data de nascimento</label>
+          <label><input type="checkbox" value="cnh"> CNH</label>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 Equipe -->
+    <section class="passo" data-passo="Equipe">
+      <div class="card">
+        <h2>Departamentos</h2>
+        <p class="muted">O primeiro é o Comercial, para onde vão os clientes qualificados.</p>
+        <div id="listaDeps"></div>
+        <button class="leve" id="addDep">Adicionar departamento</button>
+        <div class="dica" id="dicaTicket" hidden></div>
+      </div>
+      <div class="card">
+        <h2>Distribuição dos clientes</h2>
+        <div class="opcoes">
+          <label class="opcao"><input type="radio" name="dist" value="departamento"><span>Para o departamento<small>O cliente cai na fila e quem estiver livre assume.</small></span></label>
+          <label class="opcao"><input type="radio" name="dist" value="rodizio"><span>Rodízio entre vendedores<small>Um cliente para cada vendedor, em sequência.</small></span></label>
+        </div>
+        <h2 style="margin-top:20px">Vendedores</h2>
+        <p class="muted">Também usados quando o cliente diz que já fala com alguém.</p>
+        <div id="listaVend"></div>
+        <button class="leve" id="addVend">Adicionar vendedor</button>
+        <label for="respConsig">Quem cuida de cliente que quer vender ou consignar</label>
+        <select id="respConsig"></select>
+      </div>
+    </section>
+
+    <!-- 6 Lead -->
+    <section class="passo" data-passo="Destino do lead">
+      <div class="card">
+        <h2>Para onde vai o lead</h2>
+        <div id="blocoEnvioAC">
+          <label class="opcao" style="margin-top:12px"><input type="checkbox" id="enviarAC"><span>Enviar o lead para o AutoCerto<small>A IA cadastra o cliente no AutoCerto e avisa o gerente no WhatsApp.</small></span></label>
+          <div id="blocoGerente">
+            <label for="gerente">WhatsApp do gerente <small>(com 55 e DDD)</small></label>
+            <input id="gerente" inputmode="numeric" placeholder="5521999999999">
+          </div>
+        </div>
+        <p class="muted" style="margin-top:12px" id="textoDestino"></p>
+      </div>
+    </section>
+
+    <!-- 7 Follow-up -->
+    <section class="passo" data-passo="Follow-up">
+      <div class="card">
+        <h2>Quando o cliente para de responder</h2>
+        <div class="duas">
+          <div><label for="fu1">1ª mensagem depois de</label>
+            <select id="fu1"><option value="5">5 minutos</option><option value="10">10 minutos</option><option value="15">15 minutos</option></select></div>
+          <div><label for="fu2">2ª mensagem depois de</label>
+            <select id="fu2"><option value="30">30 minutos</option><option value="45">45 minutos</option><option value="60">1 hora</option><option value="120">2 horas</option></select></div>
+        </div>
+        <label for="transf">Passar o cliente para o Comercial</label>
+        <select id="transf">
+          <option value="apos_primeiro">Se não responder a 1ª mensagem</option>
+          <option value="apos_segundo">Se não responder a 2ª mensagem</option>
+          <option value="apos_terceiro">Se não responder a 3ª mensagem (24 horas)</option>
+          <option value="personalizado">Depois de um tempo que eu escolher</option>
+        </select>
+        <div id="blocoPers" hidden>
+          <div class="duas">
+            <div><label for="persN">Tempo</label><input id="persN" type="number" min="1" value="3"></div>
+            <div><label for="persU">&nbsp;</label><select id="persU"><option value="1">minutos</option><option value="60" selected>horas</option><option value="1440">dias</option></select></div>
+          </div>
+        </div>
+        <p class="muted" style="margin-top:14px">Tudo conta a partir da última mensagem do cliente e respeita o horário da equipe: se cair com a loja fechada, sai na abertura.</p>
+        <ol class="tempo" id="linhaTempo"></ol>
+      </div>
+    </section>
+
+    <!-- 8 Revisar -->
+    <section class="passo" data-passo="Revisar">
+      <div class="card">
+        <h2>Revise e salve</h2>
+        <dl class="resumo" id="resumo"></dl>
+        <p id="erroSalvar" class="erro" hidden></p>
+        <button id="btSalvar" class="principal" style="width:100%;margin-top:16px">Salvar configuração</button>
+      </div>
+      <div id="salvo" class="salvo" hidden></div>
+    </section>
+  </div>
+
+  <div class="barra"><div class="in">
+    <button id="btVoltar">Voltar</button>
+    <span class="muted" id="contador" style="font-size:13px"></span>
+    <button id="btProximo" class="principal">Próximo</button>
+  </div></div>
+</div>
+
+<script>
+const q = new URLSearchParams(location.search);
+const CHAVE = q.get('k') || '';
+const API = q.get('api') || '';
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let PIN = '', CFG = null, CANAL = '', FONTE = '', passoAtual = 0, ticket = null;
+
+const DIAS = [['seg', 'Segunda'], ['ter', 'Terça'], ['qua', 'Quarta'], ['qui', 'Quinta'], ['sex', 'Sexta'], ['sab', 'Sábado'], ['dom', 'Domingo']];
+const PADRAO = {
+  ia: { nome: '', genero: 'feminino', tom: 'acolhedor', diferenciais: [] },
+  loja: { nome: '', tipo: null, endereco: '', bairro: '', cidade: '', uf: '', mapa: '', site: '', instagram: '', telefone: '' },
+  horario: { seg: ['09:00', '18:00'], ter: ['09:00', '18:00'], qua: ['09:00', '18:00'], qui: ['09:00', '18:00'], sex: ['09:00', '18:00'], sab: ['09:00', '13:00'], dom: null,
+    feriados: ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '11-20', '12-25'] },
+  regras: { informaPreco: false, atendimentoNoHorarioDaEquipe: 'completo', perguntaSeJaEAtendido: true, coletaFinanciamento: ['entrada', 'troca', 'cpf', 'nascimento', 'cnh'] },
+  departamentos: [{ nome: 'Comercial', queueId: '', finalidade: 'compra, troca, financiamento, visita' }],
+  distribuicao: { modo: 'departamento', vendedores: [], responsavelVendaConsignacao: null },
+  lead: { enviarAutoCerto: false, codigoMidia: 12, interesse: 2, whatsappGerente: '' },
+  followup: { primeiroMin: 10, segundoMin: 45, transferir: { quando: 'apos_primeiro', personalizadoMin: null } }
+};
+
+// ── dados do atendimento que a LeadVox manda para o plugin (só leitura) ──
+window.addEventListener('message', (ev) => {
+  let host = ''; try { host = new URL(ev.origin).hostname; } catch (e) { return; }
+  if (!/(^|\.)leadvox\.com\.br$/.test(host)) return;
+  const d = ev.data && ev.data.type === 'DEFAULT_DATA' ? ev.data.data : null;
+  if (d && d.ticket) { ticket = d.ticket; mostrarDicaTicket(); }
+});
+
+async function chamar(corpo) {
+  if (!/^https:\/\/webhook\.lv-mktdeconversa\.com\//.test(API) || !CHAVE) throw new Error('Link do plugin incompleto. Peça um link novo para a LeadVox.');
+  const r = await fetch(API, { method: 'POST', body: new URLSearchParams({ dados: JSON.stringify({ chave: CHAVE, pin: PIN, ...corpo }) }) });
+  let j = {}; try { j = await r.json(); } catch (e) {}
+  if (!r.ok || j.ok === false) throw new Error(j.erro || ('Não consegui falar com o servidor (HTTP ' + r.status + ').'));
+  return j;
+}
+
+// ── entrada ──
+try { PIN = sessionStorage.getItem('pin_' + CHAVE) || ''; } catch (e) {}
+$('pin').addEventListener('input', () => { $('pin').value = $('pin').value.replace(/\D/g, '').slice(0, 6); if ($('pin').value.length === 6) entrar(); });
+$('btEntrar').addEventListener('click', entrar);
+async function entrar() {
+  const p = PIN && !$('pin').value ? PIN : $('pin').value;
+  if (!/^\d{6}$/.test(p)) { mostrarErroPorta('O PIN tem 6 números.'); return; }
+  PIN = p; $('btEntrar').disabled = true; $('btEntrar').textContent = 'Entrando…';
+  try {
+    const j = await chamar({ acao: 'carregar' });
+    try { sessionStorage.setItem('pin_' + CHAVE, PIN); } catch (e) {}
+    CANAL = j.canal || ''; FONTE = j.fonte || '';
+    CFG = mesclar(j.config || {});
+    abrirApp();
+  } catch (e) { PIN = ''; try { sessionStorage.removeItem('pin_' + CHAVE); } catch (x) {} mostrarErroPorta(e.message); }
+  $('btEntrar').disabled = false; $('btEntrar').textContent = 'Entrar';
+}
+function mostrarErroPorta(m) { $('erroPorta').hidden = false; $('erroPorta').textContent = m; }
+function mesclar(c) {
+  const o = JSON.parse(JSON.stringify(PADRAO));
+  for (const k of Object.keys(o)) if (c[k] !== undefined && c[k] !== null) o[k] = Array.isArray(o[k]) ? c[k] : { ...o[k], ...c[k] };
+  if (c.loja && c.loja.nome) o.loja.nome = c.loja.nome;
+  if (c.horario) for (const [d] of DIAS) o.horario[d] = c.horario[d] ?? null;
+  return o;
+}
+if (PIN) entrar();
+
+// ── montar a tela a partir da configuração ──
+function abrirApp() {
+  $('telaPorta').hidden = true; $('telaApp').hidden = false;
+  $('titulo').textContent = CFG.loja.nome || 'Configuração da IA';
+  $('subtitulo').textContent = 'Estoque pelo ' + (FONTE === 'revendamais' ? 'Revenda Mais' : 'AutoCerto') + ', WhatsApp ' + (CANAL === 'waba' ? 'oficial' : 'conectado por QR code') + '.';
+  const c = CFG;
+  $('iaNome').value = c.ia.nome; $('iaGenero').value = c.ia.genero; marcar('tom', c.ia.tom); $('iaDif').value = (c.ia.diferenciais || []).join('\n');
+  $('ljNome').value = c.loja.nome; marcar('tipo', c.loja.tipo); $('ljEnd').value = c.loja.endereco; $('ljCidade').value = c.loja.cidade; $('ljUf').value = c.loja.uf;
+  $('ljBairro').value = c.loja.bairro; $('ljMapa').value = c.loja.mapa; $('ljSite').value = c.loja.site; $('ljInsta').value = c.loja.instagram; $('ljTel').value = c.loja.telefone;
+  $('dias').innerHTML = DIAS.map(([d, n]) => { const h = c.horario[d];
+    return `<div class="dia"><label><input type="checkbox" data-dia="${d}" ${h ? 'checked' : ''}> ${n}</label>
+      <input type="time" data-ini="${d}" value="${h ? h[0] : '09:00'}" ${h ? '' : 'disabled'} aria-label="${n}, abre">
+      <input type="time" data-fim="${d}" value="${h ? h[1] : '18:00'}" ${h ? '' : 'disabled'} aria-label="${n}, fecha"></div>`; }).join('');
+  $('feriados').value = (c.horario.feriados || []).join(', ');
+  marcar('preco', c.regras.informaPreco ? 'sim' : 'nao'); marcar('modo', c.regras.atendimentoNoHorarioDaEquipe);
+  $('jaAtendido').checked = c.regras.perguntaSeJaEAtendido !== false;
+  document.querySelectorAll('#coleta input').forEach(i => i.checked = (c.regras.coletaFinanciamento || []).includes(i.value));
+  renderDeps(c.departamentos); renderVend(c.distribuicao.vendedores); marcar('dist', c.distribuicao.modo);
+  $('enviarAC').checked = !!c.lead.enviarAutoCerto; $('gerente').value = c.lead.whatsappGerente || '';
+  $('blocoEnvioAC').hidden = FONTE !== 'autocerto';
+  $('fu1').value = String(c.followup.primeiroMin); $('fu2').value = String(c.followup.segundoMin);
+  $('transf').value = c.followup.transferir.quando;
+  const pm = c.followup.transferir.personalizadoMin;
+  if (pm) { const u = pm % 1440 === 0 ? 1440 : pm % 60 === 0 ? 60 : 1; $('persU').value = String(u); $('persN').value = pm / u; }
+  $('passos').innerHTML = [...document.querySelectorAll('.passo')].map((s, i) => `<button type="button" data-ir="${i}">${i + 1}. ${s.dataset.passo}</button>`).join('');
+  irPara(0); atualizar(); mostrarDicaTicket();
+}
+function marcar(nome, valor) { document.querySelectorAll(`input[name="${nome}"]`).forEach(i => i.checked = i.value === valor); }
+function valor(nome) { const i = document.querySelector(`input[name="${nome}"]:checked`); return i ? i.value : null; }
+
+// ── listas de departamentos e vendedores ──
+function renderDeps(lista) {
+  $('listaDeps').innerHTML = (lista.length ? lista : [{}]).map((d, i) => `
+    <div class="linha-lista" data-dep>
+      ${i > 0 ? '<button class="tirar" type="button" data-tirar aria-label="Remover departamento">×</button>' : ''}
+      <div class="tres">
+        <div><label>Nome</label><input data-f="nome" maxlength="40" value="${esc(d.nome || '')}" ${i === 0 ? 'placeholder="Comercial"' : ''}></div>
+        <div><label>ID da fila</label><input data-f="queueId" inputmode="numeric" value="${esc(d.queueId || '')}"></div>
+      </div>
+      <label>O que vai para ele</label><input data-f="finalidade" maxlength="120" value="${esc(d.finalidade || '')}" placeholder="Ex.: documento, boleto, garantia">
+    </div>`).join('');
+}
+function renderVend(lista) {
+  $('listaVend').innerHTML = lista.map(v => `
+    <div class="linha-lista" data-vend>
+      <button class="tirar" type="button" data-tirar aria-label="Remover vendedor">×</button>
+      <div class="tres">
+        <div><label>Nome</label><input data-f="nome" maxlength="40" value="${esc(v.nome || '')}"></div>
+        <div><label>ID do usuário</label><input data-f="userId" inputmode="numeric" value="${esc(v.userId || '')}"></div>
+      </div>
+      <label>Apelidos <small>(separados por vírgula)</small></label><input data-f="apelidos" value="${esc((v.apelidos || []).join(', '))}" placeholder="Ex.: Bia, Beatriz">
+    </div>`).join('') || '<p class="muted" style="margin-top:10px">Nenhum vendedor cadastrado.</p>';
+  atualizarResp();
+}
+function lerLista(sel, campos) {
+  return [...document.querySelectorAll(sel)].map(el => { const o = {}; campos.forEach(f => o[f] = el.querySelector(`[data-f="${f}"]`).value.trim()); return o; });
+}
+function lerVend() { return lerLista('[data-vend]', ['nome', 'userId', 'apelidos']).filter(v => v.nome || v.userId).map(v => ({ ...v, apelidos: v.apelidos.split(',').map(a => a.trim()).filter(Boolean) })); }
+function atualizarResp() {
+  const atual = $('respConsig').value || String(CFG.distribuicao.responsavelVendaConsignacao || '');
+  const vs = lerVend().filter(v => v.userId);
+  $('respConsig').innerHTML = '<option value="">Ninguém em especial (vai para o Comercial)</option>' + vs.map(v => `<option value="${esc(v.userId)}">${esc(v.nome)}</option>`).join('');
+  $('respConsig').value = vs.some(v => v.userId === atual) ? atual : '';
+}
+$('addDep').addEventListener('click', () => { const l = lerLista('[data-dep]', ['nome', 'queueId', 'finalidade']); l.push({}); renderDeps(l); });
+$('addVend').addEventListener('click', () => { const l = lerVend(); l.push({}); renderVend(l); });
+document.addEventListener('click', (ev) => {
+  const t = ev.target.closest('[data-tirar]');
+  if (t) { const emVend = !!t.closest('#listaVend'); t.parentElement.remove(); if (emVend && !document.querySelector('[data-vend]')) renderVend([]); atualizarResp(); atualizar(); return; }
+  const ir = ev.target.closest('[data-ir]'); if (ir) irPara(+ir.dataset.ir);
+  const eu = ev.target.closest('[data-eu]');
+  if (eu && ticket && ticket.user) { const l = lerVend(); if (!l.some(v => String(v.userId) === String(ticket.user.id))) l.push({ nome: ticket.user.name || '', userId: ticket.user.id, apelidos: [] }); renderVend(l); atualizar(); }
+  const fila = ev.target.closest('[data-fila]');
+  if (fila) { const f = document.querySelector('[data-dep] [data-f="queueId"]'); if (f && !f.value) f.value = fila.dataset.fila; }
+});
+function mostrarDicaTicket() {
+  if (!ticket || $('telaApp').hidden) return;
+  const u = ticket.user || {}; const fila = ticket.queueId || (ticket.queue && ticket.queue.id) || (ticket.contact && ticket.contact.queueId);
+  const partes = [];
+  if (u.id) partes.push(`Você está logado como <b>${esc(u.name || 'usuário')}</b>, ID ${esc(u.id)}. <button class="leve" type="button" data-eu>Me adicionar como vendedor</button>`);
+  if (fila) partes.push(`Este atendimento está na fila de ID <b>${esc(fila)}</b>. <button class="leve" type="button" data-fila="${esc(fila)}">Usar no Comercial</button>`);
+  if (partes.length) { $('dicaTicket').hidden = false; $('dicaTicket').innerHTML = partes.join('<br>'); }
+}
+
+// ── horário ──
+document.addEventListener('change', (ev) => {
+  const d = ev.target.dataset && ev.target.dataset.dia;
+  if (d) { document.querySelector(`[data-ini="${d}"]`).disabled = !ev.target.checked; document.querySelector(`[data-fim="${d}"]`).disabled = !ev.target.checked; }
+  atualizar();
+});
+document.addEventListener('input', (ev) => { if (!$('telaApp').hidden) atualizar(); if (ev.target.closest('[data-vend]')) atualizarResp(); });
+
+// ── ler tudo da tela ──
+function coletar() {
+  const horario = {};
+  DIAS.forEach(([d]) => { const on = document.querySelector(`[data-dia="${d}"]`).checked;
+    horario[d] = on ? [document.querySelector(`[data-ini="${d}"]`).value, document.querySelector(`[data-fim="${d}"]`).value] : null; });
+  horario.feriados = $('feriados').value.split(/[,;\s]+/).map(s => s.trim()).filter(Boolean);
+  const quando = $('transf').value;
+  return {
+    ia: { nome: $('iaNome').value.trim(), genero: $('iaGenero').value, tom: valor('tom') || 'acolhedor',
+      diferenciais: $('iaDif').value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 6) },
+    loja: { nome: $('ljNome').value.trim(), tipo: valor('tipo'), endereco: $('ljEnd').value.trim(), bairro: $('ljBairro').value.trim(),
+      cidade: $('ljCidade').value.trim(), uf: $('ljUf').value.trim(), mapa: $('ljMapa').value.trim(), site: $('ljSite').value.trim(),
+      instagram: $('ljInsta').value.trim(), telefone: $('ljTel').value.trim() },
+    horario,
+    regras: { informaPreco: valor('preco') === 'sim', atendimentoNoHorarioDaEquipe: valor('modo') || 'completo',
+      perguntaSeJaEAtendido: $('jaAtendido').checked, coletaFinanciamento: [...document.querySelectorAll('#coleta input:checked')].map(i => i.value) },
+    departamentos: lerLista('[data-dep]', ['nome', 'queueId', 'finalidade']).filter(d => d.nome || d.queueId),
+    distribuicao: { modo: valor('dist') || 'departamento', vendedores: lerVend(), responsavelVendaConsignacao: $('respConsig').value || null },
+    lead: { enviarAutoCerto: FONTE === 'autocerto' && $('enviarAC').checked, codigoMidia: CFG.lead.codigoMidia || 12, interesse: CFG.lead.interesse || 2,
+      whatsappGerente: $('gerente').value.replace(/\D/g, '') },
+    followup: { primeiroMin: +$('fu1').value, segundoMin: +$('fu2').value,
+      transferir: { quando, personalizadoMin: quando === 'personalizado' ? Math.round(+$('persN').value * +$('persU').value) : null } }
+  };
+}
+
+// ── prévia, linha do tempo e textos que mudam ──
+const fmt = (m) => m < 60 ? m + ' min' : m < 1440 ? (m / 60).toFixed(m % 60 ? 1 : 0).replace('.', ',') + ' h' : Math.round(m / 1440) + (m >= 2880 ? ' dias' : ' dia');
+function atualizar() {
+  if (!CFG || $('telaApp').hidden) return;
+  const c = coletar();
+  const nome = c.ia.nome || 'sua IA', loja = c.loja.nome || 'sua loja', tipo = c.loja.tipo === 'carro' ? 'carro' : c.loja.tipo === 'ambos' ? 'veículo' : 'moto';
+  const abre = { acolhedor: 'Boa tarde! Tudo bem?', descontraido: 'Opa, boa tarde! Tudo certo?', formal: 'Boa tarde, tudo bem?' }[c.ia.tom];
+  const art = c.ia.genero === 'masculino' ? 'seu assistente virtual' : 'sua assistente virtual';
+  $('previa').innerHTML = `${abre} Me chamo <b>${esc(nome)}</b>, ${art} aqui da <b>${esc(loja)}</b>. Como posso te chamar?<span class="hora">14:32</span>`;
+
+  $('blocoGerente').hidden = !$('enviarAC').checked;
+  $('textoDestino').textContent = (FONTE === 'autocerto' && c.lead.enviarAutoCerto)
+    ? 'Quando o cliente estiver qualificado, a IA cadastra o lead no AutoCerto, avisa o gerente e passa o atendimento para a equipe.'
+    : 'Quando o cliente estiver qualificado, a IA passa o atendimento para o departamento Comercial com um resumo da conversa.' + (FONTE !== 'autocerto' ? ' O envio para o AutoCerto só existe para lojas com estoque no AutoCerto.' : '');
+
+  $('blocoPers').hidden = c.followup.transferir.quando !== 'personalizado';
+  const f = c.followup, t = f.transferir;
+  const tr = t.quando === 'apos_primeiro' ? f.segundoMin : t.quando === 'apos_segundo' ? 23 * 60 : t.quando === 'apos_terceiro' ? 24 * 60 : (t.personalizadoMin || 0);
+  const ev = [
+    { m: f.primeiroMin, txt: '1ª mensagem da IA para o cliente' },
+    { m: f.segundoMin, txt: '2ª mensagem da IA para o cliente' },
+    { m: 23 * 60, txt: '3ª mensagem da IA para o cliente' },
+    ...(CANAL === 'waba' ? [{ m: 7 * 1440, txt: 'Lembrete de 7 dias', longo: true }] : [7, 15, 30].map(d => ({ m: d * 1440, txt: 'Lembrete de ' + d + ' dias', longo: true })))
+  ].filter(e => !(e.m === tr && !e.longo));
+  const itens = ev.map(e => ({ ...e, nota: e.m > tr || (CANAL === 'waba' && e.m > 24 * 60) }));
+  if (tr) itens.push({ m: tr, txt: 'Passa o cliente para o Comercial, com o resumo da conversa', transf: true });
+  itens.sort((a, b) => a.m - b.m || (a.transf ? -1 : 1));
+  $('linhaTempo').innerHTML = itens.map(e => `<li class="${e.transf ? 'transf' : e.nota ? 'nota' : ''}"><span class="quando">${fmt(e.m)}</span><span class="marca"></span>
+    <span>${e.transf ? e.txt : e.nota ? e.txt.replace(' da IA para o cliente', '') + '<small>Vira nota interna para o vendedor, e reabre o ticket se estiver fechado</small>' : e.txt}</span></li>`).join('');
+}
+['change', 'input'].forEach(evn => document.addEventListener(evn, (e) => { if (e.target.name === 'dist' || e.target.id === 'enviarAC' || e.target.id === 'transf') atualizar(); }));
+
+// ── navegação entre etapas ──
+function irPara(i) {
+  const secs = [...document.querySelectorAll('.passo')];
+  passoAtual = Math.max(0, Math.min(i, secs.length - 1));
+  secs.forEach((s, k) => s.classList.toggle('ativo', k === passoAtual));
+  [...$('passos').children].forEach((b, k) => { if (k === passoAtual) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current'); b.classList.toggle('feito', k < passoAtual); });
+  $('btVoltar').disabled = passoAtual === 0;
+  $('btProximo').hidden = passoAtual === secs.length - 1;
+  $('contador').textContent = (passoAtual + 1) + ' de ' + secs.length;
+  if (passoAtual === secs.length - 1) montarResumo();
+  const b = $('passos').children[passoAtual]; if (b) b.scrollIntoView({ inline: 'center', block: 'nearest' });
+  window.scrollTo(0, 0);
+}
+$('btVoltar').addEventListener('click', () => irPara(passoAtual - 1));
+$('btProximo').addEventListener('click', () => irPara(passoAtual + 1));
+
+function montarResumo() {
+  const c = coletar();
+  const dias = DIAS.filter(([d]) => c.horario[d]).map(([d, n]) => n.slice(0, 3) + ' ' + c.horario[d].join('–')).join(', ') || 'nenhum dia marcado';
+  const deps = c.departamentos.map(d => d.nome + (d.queueId ? ' (fila ' + d.queueId + ')' : ' (sem ID da fila)')).join(', ') || 'nenhum';
+  const tQ = { apos_primeiro: 'se não responder a 1ª mensagem', apos_segundo: 'se não responder a 2ª mensagem', apos_terceiro: 'depois de 24 horas',
+    personalizado: 'depois de ' + fmt(c.followup.transferir.personalizadoMin || 0) }[c.followup.transferir.quando];
+  const linhas = [
+    ['IA', (c.ia.nome || 'sem nome') + ', tom ' + { acolhedor: 'acolhedor', descontraido: 'descontraído', formal: 'formal' }[c.ia.tom]],
+    ['Loja', (c.loja.nome || 'sem nome') + (c.loja.tipo ? ', vende ' + { moto: 'motos', carro: 'carros', ambos: 'motos e carros' }[c.loja.tipo] : ', tipo não escolhido')],
+    ['Horário da equipe', dias],
+    ['Preço', c.regras.informaPreco ? 'A IA pode informar' : 'Só o consultor informa'],
+    ['Departamentos', deps],
+    ['Distribuição', c.distribuicao.modo === 'rodizio' ? 'Rodízio entre ' + c.distribuicao.vendedores.length + ' vendedores' : 'Para o departamento'],
+    ['Lead', c.lead.enviarAutoCerto ? 'Vai para o AutoCerto e avisa o gerente' : 'Transferido para o Comercial'],
+    ['Follow-up', fmt(c.followup.primeiroMin) + ' e ' + fmt(c.followup.segundoMin) + ', transfere ' + tQ]
+  ];
+  $('resumo').innerHTML = linhas.map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('');
+}
+
+$('btSalvar').addEventListener('click', async () => {
+  const bt = $('btSalvar'); bt.disabled = true; bt.textContent = 'Salvando…'; $('erroSalvar').hidden = true; $('salvo').hidden = true;
+  try {
+    const cfg = coletar();
+    const j = await chamar({ acao: 'salvar', config: cfg });
+    CFG = mesclar({ ...CFG, ...cfg });
+    $('salvo').hidden = false;
+    $('salvo').innerHTML = `<b>Configuração salva.</b> Esta é a versão ${esc(j.versao)}. Você pode voltar aqui e mudar o que quiser quando precisar.`;
+  } catch (e) { $('erroSalvar').hidden = false; $('erroSalvar').textContent = e.message; }
+  bt.disabled = false; bt.textContent = 'Salvar configuração';
+});
+</script>
+</body>
+</html>
