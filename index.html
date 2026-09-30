@@ -26,6 +26,7 @@
   label small { color: var(--suave); font-weight: 400; }
   input, select, textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--linha); border-radius: var(--raio);
     font: inherit; color: var(--texto); background: var(--navy); color-scheme: dark; }
+  option { background: var(--navy); color: var(--texto); }
   input::placeholder, textarea::placeholder { color: #56627f; }
   textarea { min-height: 96px; resize: vertical; }
   input:focus-visible, select:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--verde); outline-offset: 1px; }
@@ -251,6 +252,7 @@
         <button class="leve" id="addVend">Adicionar atendente</button>
         <label for="respConsig">Quem cuida de cliente que quer vender ou consignar</label>
         <select id="respConsig"></select>
+        <p class="muted" id="dicaResp" style="font-size:13px;margin-top:6px"></p>
       </div>
     </section>
 
@@ -461,13 +463,19 @@ function lerLista(sel, campos) {
 }
 function lerVend() { return lerLista('[data-vend]', ['nome', 'userId', 'departamento', 'apelidos']).filter(v => v.nome || v.userId).map(v => ({ ...v, apelidos: v.apelidos.split(',').map(a => a.trim()).filter(Boolean) })); }
 function atualizarResp() {
-  const atual = $('respConsig').value || String(CFG.distribuicao.responsavelVendaConsignacao || '');
-  const vs = lerVend().filter(v => v.userId);
-  $('respConsig').innerHTML = '<option value="">Ninguém em especial (vai para o Comercial)</option>' + vs.map(v => `<option value="${esc(v.userId)}">${esc(v.nome)}</option>`).join('');
-  $('respConsig').value = vs.some(v => v.userId === atual) ? atual : '';
+  const salvo = CFG.distribuicao.setorVendaConsignacao ? 'setor:' + CFG.distribuicao.setorVendaConsignacao : String(CFG.distribuicao.responsavelVendaConsignacao || '');
+  const atual = $('respConsig').value || salvo;
+  const vs = lerVend().filter(v => v.nome && v.userId);
+  const ss = nomesDeps();
+  $('respConsig').innerHTML = '<option value="">Ninguém em especial (vai para o setor principal)</option>' +
+    (ss.length ? '<optgroup label="Um setor">' + ss.map(s => `<option value="setor:${esc(s)}">${esc(s)}</option>`).join('') + '</optgroup>' : '') +
+    (vs.length ? '<optgroup label="Um atendente">' + vs.map(v => `<option value="${esc(v.userId)}">${esc(v.nome)}</option>`).join('') + '</optgroup>' : '');
+  const opcoes = [...$('respConsig').options].map(o => o.value);
+  $('respConsig').value = opcoes.includes(atual) ? atual : '';
+  $('dicaResp').textContent = vs.length ? 'Escolha um setor (a fila dele, com rodízio se estiver ligado) ou uma pessoa.' : 'Para escolher uma pessoa, cadastre o atendente com nome e ID acima. Setores já aparecem na lista.';
 }
 $('addDep').addEventListener('click', () => { const l = lerLista('[data-dep]', ['nome', 'queueId', 'finalidade']); if (l.length >= 15) return; l.push({}); renderDeps(l); renderVend(lerVend()); });
-document.addEventListener('change', (ev) => { if (ev.target.closest('[data-dep]') && ev.target.dataset.f === 'nome') renderVend(lerVend()); });
+document.addEventListener('change', (ev) => { if (ev.target.closest('[data-dep]') && ev.target.dataset.f === 'nome') { renderVend(lerVend()); atualizarResp(); } });
 $('addVend').addEventListener('click', () => { const l = lerVend(); if (l.length >= 20) return; l.push({}); renderVend(l); });
 document.addEventListener('click', (ev) => {
   const t = ev.target.closest('[data-tirar]');
@@ -493,7 +501,7 @@ document.addEventListener('change', (ev) => {
   if (d) { document.querySelector(`[data-ini="${d}"]`).disabled = !ev.target.checked; document.querySelector(`[data-fim="${d}"]`).disabled = !ev.target.checked; }
   atualizar();
 });
-document.addEventListener('input', (ev) => { if (!$('telaApp').hidden) atualizar(); if (ev.target.closest('[data-vend]')) atualizarResp(); });
+document.addEventListener('input', (ev) => { if (!$('telaApp').hidden) atualizar(); if (ev.target.closest('[data-vend]') || ev.target.closest('[data-dep]')) atualizarResp(); });
 
 // ── ler tudo da tela ──
 function coletar() {
@@ -512,7 +520,9 @@ function coletar() {
     regras: { informaPreco: valor('preco') === 'sim', atendimentoNoHorarioDaEquipe: valor('modo') || 'completo',
       perguntaSeJaEAtendido: $('jaAtendido').checked, coletaFinanciamento: [...document.querySelectorAll('#coleta input:checked')].map(i => i.value) },
     departamentos: lerLista('[data-dep]', ['nome', 'queueId', 'finalidade']).filter(d => d.nome || d.queueId),
-    distribuicao: { modo: valor('dist') || 'departamento', vendedores: lerVend(), responsavelVendaConsignacao: $('respConsig').value || null },
+    distribuicao: { modo: valor('dist') || 'departamento', vendedores: lerVend(),
+      responsavelVendaConsignacao: /^\d+$/.test($('respConsig').value) ? $('respConsig').value : null,
+      setorVendaConsignacao: $('respConsig').value.startsWith('setor:') ? $('respConsig').value.slice(6) : null },
     lead: { enviarAutoCerto: FONTE === 'autocerto' && $('enviarAC').checked, codigoMidia: CFG.lead.codigoMidia || 12, interesse: CFG.lead.interesse || 2,
       whatsappGerente: $('gerente').value.replace(/\D/g, '') },
     followup: { primeiroMin: +$('fu1').value, segundoMin: +$('fu2').value,
