@@ -60,6 +60,12 @@
   .ok-check { width: 64px; height: 64px; border-radius: 50%; background: var(--verde-fundo); border: 2px solid var(--verde); display: grid; place-items: center; margin: 8px auto 12px; }
   .ok-check svg { width: 30px; height: 30px; stroke: var(--verde); stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 30; stroke-dashoffset: 0; }
   @media (prefers-reduced-motion: no-preference) { .ok-check svg { animation: tracar .45s ease-out both; } @keyframes tracar { from { stroke-dashoffset: 30; } } }
+  .porta .card.login { text-align: left; }
+  .porta .card.login h1, .porta .card.login .marca-lv, .porta .card.login .sub { text-align: center; }
+  .lembrar { display: flex; gap: 8px; align-items: center; font-weight: 400; margin-top: 12px; }
+  .lembrar input { width: auto; }
+  .ok-msg { color: var(--verde); font-size: 14px; margin-top: 10px; }
+  .topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
   .pin-in { font: 700 28px Syne, sans-serif; letter-spacing: .4em; text-align: center; padding: 12px; margin-top: 18px; }
 
   /* passos */
@@ -132,7 +138,7 @@
 
 <div id="telaApp" hidden>
   <div class="wrap">
-    <h1 id="titulo">Configuração da IA</h1>
+    <div class="topo"><h1 id="titulo">Configuração da IA</h1><button class="leve" id="btSair" type="button" hidden>Sair</button></div>
     <p class="muted" id="subtitulo"></p>
     <span class="selo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Acesso liberado</span>
     <div class="card liga" id="cardLiga">
@@ -333,7 +339,15 @@
 <script>
 const q = new URLSearchParams(location.search);
 const CHAVE = q.get('k') || '';
-const API = q.get('api') || '';
+const API_PADRAO = 'https://webhook.lv-mktdeconversa.com/webhook/sdr-plugin';
+const LOGIN_API = 'https://webhook.lv-mktdeconversa.com/webhook/sdr-login';
+const API = q.get('api') || API_PADRAO;
+// sem ?k= na URL → login com e-mail e senha; com ?k= → link antigo com PIN
+const MODO = CHAVE ? 'pin' : 'login';
+let TOKEN = '';
+const guardar = { ler() { try { return localStorage.getItem('sdr_token') || sessionStorage.getItem('sdr_token') || ''; } catch (e) { return ''; } },
+  salvar(t, lembrar) { try { (lembrar ? localStorage : sessionStorage).setItem('sdr_token', t); } catch (e) {} },
+  limpar() { try { localStorage.removeItem('sdr_token'); sessionStorage.removeItem('sdr_token'); } catch (e) {} } };
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let PIN = '', CFG = null, CANAL = '', FONTE = '', passoAtual = 0, ticket = null;
@@ -373,15 +387,29 @@ window.addEventListener('message', (ev) => {
 });
 
 async function chamar(corpo) {
-  if (!/^https:\/\/webhook\.lv-mktdeconversa\.com\//.test(API) || !CHAVE) throw new Error('Link do plugin incompleto. Peça um link novo para a LeadVox.');
-  const r = await fetch(API, { method: 'POST', body: new URLSearchParams({ dados: JSON.stringify({ chave: CHAVE, pin: PIN, ...corpo }) }) });
+  if (!/^https:\/\/webhook\.lv-mktdeconversa\.com\//.test(API) || (MODO === 'pin' && !CHAVE)) throw new Error('Link do plugin incompleto. Peça um link novo para a LeadVox.');
+  const ident = MODO === 'login' ? { token: TOKEN } : { chave: CHAVE, pin: PIN };
+  const r = await fetch(API, { method: 'POST', body: new URLSearchParams({ dados: JSON.stringify({ ...ident, ...corpo }) }) });
+  let j = {}; try { j = await r.json(); } catch (e) {}
+  if (MODO === 'login' && j.sessao === false) { guardar.limpar(); TOKEN = ''; mostrarLogin('Sua sessão expirou. Entre de novo.'); throw new Error(j.erro); }
+  if (!r.ok || j.ok === false) throw new Error(j.erro || ('Não consegui falar com o servidor (HTTP ' + r.status + ').'));
+  return j;
+}
+async function chamarLogin(corpo) {
+  const r = await fetch(LOGIN_API, { method: 'POST', body: new URLSearchParams({ dados: JSON.stringify(corpo) }) });
   let j = {}; try { j = await r.json(); } catch (e) {}
   if (!r.ok || j.ok === false) throw new Error(j.erro || ('Não consegui falar com o servidor (HTTP ' + r.status + ').'));
   return j;
 }
 
 // ── entrada ──
-try { PIN = sessionStorage.getItem('pin_' + CHAVE) || ''; } catch (e) {}
+function aplicarCarregado(j) {
+  CANAL = j.canal || ''; FONTE = j.fonte || '';
+  LV = { usuarios: (j.leadvox && Array.isArray(j.leadvox.usuarios)) ? j.leadvox.usuarios : [], etapas: (j.leadvox && Array.isArray(j.leadvox.etapas)) ? j.leadvox.etapas : [] };
+  const cc = j.config || {}; ATIVO = cc.ativo === true; BLOQ = cc.bloqueado === true; CONFIGURADA = cc.configurada === true;
+  CFG = mesclar(j.config || {});
+}
+if (MODO === 'pin') { try { PIN = sessionStorage.getItem('pin_' + CHAVE) || ''; } catch (e) {} }
 $('pin').addEventListener('input', () => { $('pin').value = $('pin').value.replace(/\D/g, '').slice(0, 6); if ($('pin').value.length === 6) entrar(); });
 $('btEntrar').addEventListener('click', entrar);
 async function entrar() {
@@ -391,10 +419,7 @@ async function entrar() {
   try {
     const j = await chamar({ acao: 'carregar' });
     try { sessionStorage.setItem('pin_' + CHAVE, PIN); } catch (e) {}
-    CANAL = j.canal || ''; FONTE = j.fonte || '';
-    LV = { usuarios: (j.leadvox && Array.isArray(j.leadvox.usuarios)) ? j.leadvox.usuarios : [], etapas: (j.leadvox && Array.isArray(j.leadvox.etapas)) ? j.leadvox.etapas : [] };
-    const cc = j.config || {}; ATIVO = cc.ativo === true; BLOQ = cc.bloqueado === true; CONFIGURADA = cc.configurada === true;
-    CFG = mesclar(j.config || {});
+    aplicarCarregado(j);
     if ($('pin').value) {
       $('cardPorta').innerHTML = '<div class="marca-lv">Lead<b>Vox</b></div><div class="ok-check"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div><h1>Acesso liberado</h1><p class="muted" style="margin-top:6px">Abrindo a configuração da sua IA…</p>';
       await new Promise(r => setTimeout(r, 1100));
@@ -411,11 +436,93 @@ function mesclar(c) {
   if (c.horario) for (const [d] of DIAS) o.horario[d] = c.horario[d] ?? null;
   return o;
 }
-if (PIN) entrar();
+if (MODO === 'pin' && PIN) entrar();
+
+// ── login com e-mail e senha ──
+const marca = '<div class="marca-lv">Lead<b>Vox</b></div>';
+function mostrarLogin(msg, email) {
+  $('telaApp').hidden = true; $('telaPorta').hidden = false;
+  const card = $('cardPorta'); card.className = 'card login';
+  card.innerHTML = marca + `<h1>Sua IA de atendimento</h1><p class="muted sub" style="margin-top:6px">Entre com o e-mail e a senha do painel.</p>
+    <form id="fLogin" novalidate>
+      <label for="lgEmail">E-mail</label><input id="lgEmail" type="email" autocomplete="username" inputmode="email" value="${esc(email || '')}">
+      <label for="lgSenha">Senha</label><input id="lgSenha" type="password" autocomplete="current-password">
+      <label class="lembrar"><input type="checkbox" id="lgLembrar" checked> Manter conectado neste aparelho (30 dias)</label>
+      <button class="principal" id="btLogin" style="width:100%;margin-top:14px">Entrar</button>
+    </form>
+    <p class="erro" id="erroLogin" ${msg ? '' : 'hidden'}>${esc(msg || '')}</p>
+    <p style="margin-top:14px;text-align:center"><button class="leve" type="button" id="btPrimeiro">Primeiro acesso ou esqueci minha senha</button></p>`;
+  $('fLogin').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const email = $('lgEmail').value.trim(), senha = $('lgSenha').value, bt = $('btLogin');
+    if (!email || !senha) return erroLogin('Preencha e-mail e senha.');
+    bt.disabled = true; bt.textContent = 'Entrando…';
+    try { const j = await chamarLogin({ acao: 'login', email, senha }); await abrirComToken(j.token, $('lgLembrar').checked); }
+    catch (e) { erroLogin(e.message); }
+    if ($('btLogin')) { $('btLogin').disabled = false; $('btLogin').textContent = 'Entrar'; }
+  });
+  $('btPrimeiro').addEventListener('click', () => mostrarCodigo($('lgEmail').value.trim()));
+  (email ? $('lgSenha') : $('lgEmail')).focus();
+}
+function erroLogin(m) { const e = $('erroLogin'); if (e) { e.hidden = false; e.textContent = m; } }
+function mostrarCodigo(email) {
+  const card = $('cardPorta'); card.className = 'card login';
+  card.innerHTML = marca + `<h1>Criar ou trocar a senha</h1><p class="muted sub" style="margin-top:6px">Enviamos um código para o WhatsApp cadastrado na LeadVox.</p>
+    <label for="cdEmail">E-mail do painel</label><input id="cdEmail" type="email" autocomplete="username" value="${esc(email || '')}">
+    <button class="principal" type="button" id="btEnviarCod" style="width:100%;margin-top:14px">Receber código no WhatsApp</button>
+    <div id="blocoCod" hidden>
+      <p class="ok-msg" id="msgCod"></p>
+      <label for="cdCodigo">Código de 6 números</label><input id="cdCodigo" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+      <label for="cdSenha">Nova senha <small>(mínimo 8 caracteres)</small></label><input id="cdSenha" type="password" autocomplete="new-password">
+      <label for="cdSenha2">Repita a nova senha</label><input id="cdSenha2" type="password" autocomplete="new-password">
+      <button class="principal" type="button" id="btSalvarSenha" style="width:100%;margin-top:14px">Salvar senha e entrar</button>
+    </div>
+    <p class="erro" id="erroLogin" hidden></p>
+    <p style="margin-top:14px;text-align:center"><button class="leve" type="button" id="btVoltarLogin">Voltar para o login</button></p>`;
+  $('btVoltarLogin').addEventListener('click', () => mostrarLogin('', $('cdEmail').value.trim()));
+  $('btEnviarCod').addEventListener('click', async () => {
+    const em = $('cdEmail').value.trim(), bt = $('btEnviarCod'); $('erroLogin').hidden = true;
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) return erroLogin('Digite o e-mail do painel.');
+    bt.disabled = true; bt.textContent = 'Enviando…';
+    try { const j = await chamarLogin({ acao: 'pedirCodigo', email: em }); $('blocoCod').hidden = false; $('msgCod').textContent = j.mensagem || 'Código enviado.'; bt.textContent = 'Reenviar código'; $('cdCodigo').focus(); }
+    catch (e) { erroLogin(e.message); bt.textContent = 'Receber código no WhatsApp'; }
+    setTimeout(() => { if ($('btEnviarCod')) $('btEnviarCod').disabled = false; }, 60000);
+  });
+  $('cdCodigo').addEventListener('input', () => { $('cdCodigo').value = $('cdCodigo').value.replace(/\D/g, '').slice(0, 6); });
+  $('btSalvarSenha').addEventListener('click', async () => {
+    const em = $('cdEmail').value.trim(), codigo = $('cdCodigo').value, s1 = $('cdSenha').value, s2 = $('cdSenha2').value, bt = $('btSalvarSenha');
+    $('erroLogin').hidden = true;
+    if (codigo.length !== 6) return erroLogin('O código tem 6 números.');
+    if (s1.length < 8) return erroLogin('A senha precisa ter pelo menos 8 caracteres.');
+    if (s1 !== s2) return erroLogin('As duas senhas não são iguais.');
+    bt.disabled = true; bt.textContent = 'Salvando…';
+    try { const j = await chamarLogin({ acao: 'confirmarCodigo', email: em, codigo, senha: s1 }); await abrirComToken(j.token, true); }
+    catch (e) { erroLogin(e.message); }
+    if ($('btSalvarSenha')) { $('btSalvarSenha').disabled = false; $('btSalvarSenha').textContent = 'Salvar senha e entrar'; }
+  });
+  $('cdEmail').focus();
+}
+async function abrirComToken(t, lembrar) {
+  TOKEN = t; guardar.limpar(); guardar.salvar(t, lembrar);
+  const j = await chamar({ acao: 'carregar' });
+  aplicarCarregado(j); abrirApp();
+}
+$('btSair').addEventListener('click', async () => {
+  try { await chamarLogin({ acao: 'sair', token: TOKEN }); } catch (e) {}
+  guardar.limpar(); TOKEN = ''; mostrarLogin('');
+});
+if (MODO === 'login') {
+  TOKEN = guardar.ler();
+  if (TOKEN) {
+    $('cardPorta').innerHTML = marca + '<h1>Sua IA de atendimento</h1><p class="muted" style="margin-top:10px">Abrindo o painel…</p>';
+    chamar({ acao: 'carregar' }).then(j => { aplicarCarregado(j); abrirApp(); })
+      .catch(e => { if (!$('telaPorta').hidden && !$('fLogin')) mostrarLogin(e.message); });
+  } else mostrarLogin('');
+}
 
 // ── montar a tela a partir da configuração ──
 function abrirApp() {
-  $('telaPorta').hidden = true; $('telaApp').hidden = false;
+  $('telaPorta').hidden = true; $('telaApp').hidden = false; $('btSair').hidden = MODO !== 'login';
   $('titulo').textContent = CFG.loja.nome || 'Configuração da IA';
   $('subtitulo').textContent = 'Estoque pelo ' + (FONTE === 'revendamais' ? 'Revenda Mais' : 'AutoCerto') + ', WhatsApp ' + (CANAL === 'waba' ? 'oficial' : 'conectado por QR code') + '.';
   const c = CFG;
