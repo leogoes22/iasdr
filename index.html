@@ -342,8 +342,9 @@ const CHAVE = q.get('k') || '';
 const API_PADRAO = 'https://webhook.lv-mktdeconversa.com/webhook/sdr-plugin';
 const LOGIN_API = 'https://webhook.lv-mktdeconversa.com/webhook/sdr-login';
 const API = q.get('api') || API_PADRAO;
-// sem ?k= na URL → login com e-mail e senha; com ?k= → link antigo com PIN
-const MODO = CHAVE ? 'pin' : 'login';
+// Login com e-mail e senha é o padrão, mesmo quando o plugin abre com ?k= (link da loja).
+// Com ?k=, aparece também a opção "Entrar com o PIN da loja" (jeito antigo).
+let MODO = 'login';
 let TOKEN = '';
 const guardar = { ler() { try { return localStorage.getItem('sdr_token') || sessionStorage.getItem('sdr_token') || ''; } catch (e) { return ''; } },
   salvar(t, lembrar) { try { (lembrar ? localStorage : sessionStorage).setItem('sdr_token', t); } catch (e) {} },
@@ -409,10 +410,23 @@ function aplicarCarregado(j) {
   const cc = j.config || {}; ATIVO = cc.ativo === true; BLOQ = cc.bloqueado === true; CONFIGURADA = cc.configurada === true;
   CFG = mesclar(j.config || {});
 }
-if (MODO === 'pin') { try { PIN = sessionStorage.getItem('pin_' + CHAVE) || ''; } catch (e) {} }
-$('pin').addEventListener('input', () => { $('pin').value = $('pin').value.replace(/\D/g, '').slice(0, 6); if ($('pin').value.length === 6) entrar(); });
-$('btEntrar').addEventListener('click', entrar);
+if (CHAVE) { try { PIN = sessionStorage.getItem('pin_' + CHAVE) || ''; } catch (e) {} }
+const PORTA_PIN = $('cardPorta').innerHTML;
+function ligarPortaPin() {
+  $('pin').addEventListener('input', () => { $('pin').value = $('pin').value.replace(/\D/g, '').slice(0, 6); if ($('pin').value.length === 6) entrar(); });
+  $('btEntrar').addEventListener('click', entrar);
+}
+ligarPortaPin();
+function mostrarPin() {
+  $('telaApp').hidden = true; $('telaPorta').hidden = false;
+  const card = $('cardPorta'); card.className = 'card'; card.innerHTML = PORTA_PIN +
+    '<p style="margin-top:14px"><button class="leve" type="button" id="btUsarLogin">Entrar com e-mail e senha</button></p>';
+  ligarPortaPin();
+  $('btUsarLogin').addEventListener('click', () => mostrarLogin(''));
+  $('pin').focus();
+}
 async function entrar() {
+  MODO = 'pin';
   const p = PIN && !$('pin').value ? PIN : $('pin').value;
   if (!/^\d{6}$/.test(p)) { mostrarErroPorta('O PIN tem 6 números.'); return; }
   PIN = p; $('btEntrar').disabled = true; $('btEntrar').textContent = 'Entrando…';
@@ -436,7 +450,7 @@ function mesclar(c) {
   if (c.horario) for (const [d] of DIAS) o.horario[d] = c.horario[d] ?? null;
   return o;
 }
-if (MODO === 'pin' && PIN) entrar();
+if (CHAVE && PIN && !guardar.ler()) { MODO = 'pin'; entrar(); }
 
 // ── login com e-mail e senha ──
 const marca = '<div class="marca-lv">Lead<b>Vox</b></div>';
@@ -451,7 +465,8 @@ function mostrarLogin(msg, email) {
       <button class="principal" id="btLogin" style="width:100%;margin-top:14px">Entrar</button>
     </form>
     <p class="erro" id="erroLogin" ${msg ? '' : 'hidden'}>${esc(msg || '')}</p>
-    <p style="margin-top:14px;text-align:center"><button class="leve" type="button" id="btPrimeiro">Primeiro acesso ou esqueci minha senha</button></p>`;
+    <p style="margin-top:14px;text-align:center"><button class="leve" type="button" id="btPrimeiro">Primeiro acesso ou esqueci minha senha</button></p>
+    ${CHAVE ? '<p style="margin-top:4px;text-align:center"><button class="leve" type="button" id="btUsarPin" style="color:var(--suave)">Entrar com o PIN da loja</button></p>' : ''}`;
   $('fLogin').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const email = $('lgEmail').value.trim(), senha = $('lgSenha').value, bt = $('btLogin');
@@ -462,6 +477,7 @@ function mostrarLogin(msg, email) {
     if ($('btLogin')) { $('btLogin').disabled = false; $('btLogin').textContent = 'Entrar'; }
   });
   $('btPrimeiro').addEventListener('click', () => mostrarCodigo($('lgEmail').value.trim()));
+  if ($('btUsarPin')) $('btUsarPin').addEventListener('click', mostrarPin);
   (email ? $('lgSenha') : $('lgEmail')).focus();
 }
 function erroLogin(m) { const e = $('erroLogin'); if (e) { e.hidden = false; e.textContent = m; } }
@@ -503,7 +519,7 @@ function mostrarCodigo(email) {
   $('cdEmail').focus();
 }
 async function abrirComToken(t, lembrar) {
-  TOKEN = t; guardar.limpar(); guardar.salvar(t, lembrar);
+  MODO = 'login'; TOKEN = t; guardar.limpar(); guardar.salvar(t, lembrar);
   const j = await chamar({ acao: 'carregar' });
   aplicarCarregado(j); abrirApp();
 }
