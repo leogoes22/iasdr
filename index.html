@@ -14,6 +14,7 @@
     --verde: #2be87b; --verde-fundo: rgba(43,232,123,.10); --erro: #ff6b6b; --raio: 10px;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { margin: 0; background: var(--navy); color: var(--texto); font: 15px/1.5 "DM Sans", system-ui, sans-serif; }
   h1, h2 { font-family: Syne, sans-serif; letter-spacing: -.01em; margin: 0; }
   h1 { font-size: 22px; line-height: 1.15; }
@@ -250,6 +251,7 @@
         <p class="muted">Até 20. No rodízio, cada cliente vai para o próximo atendente do setor escolhido. Também são usados quando o cliente diz que já fala com alguém.</p>
         <div id="listaVend"></div>
         <button class="leve" id="addVend">Adicionar atendente</button>
+        <button class="leve" id="importVend" style="margin-left:16px" hidden>Trazer os usuários da LeadVox</button>
         <label for="respConsig">Quem cuida de cliente que quer vender ou consignar</label>
         <select id="respConsig"></select>
         <p class="muted" id="dicaResp" style="font-size:13px;margin-top:6px"></p>
@@ -268,6 +270,16 @@
           </div>
         </div>
         <p class="muted" style="margin-top:12px" id="textoDestino"></p>
+      </div>
+      <div class="card">
+        <h2>Funil de vendas (CRM)</h2>
+        <p class="muted">Quando a IA passa um cliente para o Comercial, ela também cria a oportunidade no funil da LeadVox, com o veículo, o valor e o resumo da conversa.</p>
+        <label class="opcao" style="margin-top:12px"><input type="checkbox" id="crmAtivo"><span>Lançar os leads no funil<small>Se o cliente já tiver uma oportunidade aberta, ela é atualizada, sem duplicar.</small></span></label>
+        <div id="blocoCrm">
+          <label for="crmEtapa">Etapa em que o lead entra</label>
+          <select id="crmEtapa"></select>
+          <p class="muted" id="dicaCrm" style="font-size:13px;margin-top:6px"></p>
+        </div>
       </div>
     </section>
 
@@ -326,6 +338,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let PIN = '', CFG = null, CANAL = '', FONTE = '', passoAtual = 0, ticket = null;
 let ATIVO = false, BLOQ = false, CONFIGURADA = false;
+let LV = { usuarios: [], etapas: [] };   // usuários e funil da conta LeadVox (vem do servidor)
 function renderLiga() {
   const card = $('cardLiga'), bt = $('btLiga');
   card.classList.toggle('on', ATIVO && !BLOQ);
@@ -347,7 +360,8 @@ const PADRAO = {
   departamentos: [{ nome: 'Comercial', queueId: '', finalidade: 'compra, troca, financiamento, visita' }],
   distribuicao: { modo: 'departamento', vendedores: [], responsavelVendaConsignacao: null },
   lead: { enviarAutoCerto: false, codigoMidia: 12, interesse: 2, whatsappGerente: '' },
-  followup: { primeiroMin: 10, segundoMin: 45, transferir: { quando: 'apos_primeiro', personalizadoMin: null } }
+  followup: { primeiroMin: 10, segundoMin: 45, transferir: { quando: 'apos_primeiro', personalizadoMin: null } },
+  crm: { ativo: true, etapaInicialId: null }
 };
 
 // ── dados do atendimento que a LeadVox manda para o plugin (só leitura) ──
@@ -378,6 +392,7 @@ async function entrar() {
     const j = await chamar({ acao: 'carregar' });
     try { sessionStorage.setItem('pin_' + CHAVE, PIN); } catch (e) {}
     CANAL = j.canal || ''; FONTE = j.fonte || '';
+    LV = { usuarios: (j.leadvox && Array.isArray(j.leadvox.usuarios)) ? j.leadvox.usuarios : [], etapas: (j.leadvox && Array.isArray(j.leadvox.etapas)) ? j.leadvox.etapas : [] };
     const cc = j.config || {}; ATIVO = cc.ativo === true; BLOQ = cc.bloqueado === true; CONFIGURADA = cc.configurada === true;
     CFG = mesclar(j.config || {});
     if ($('pin').value) {
@@ -423,6 +438,12 @@ function abrirApp() {
   const pm = c.followup.transferir.personalizadoMin;
   if (pm) { const u = pm % 1440 === 0 ? 1440 : pm % 60 === 0 ? 60 : 1; $('persU').value = String(u); $('persN').value = pm / u; }
   $('passos').innerHTML = [...document.querySelectorAll('.passo')].map((s, i) => `<button type="button" data-ir="${i}">${i + 1}. ${s.dataset.passo}</button>`).join('');
+  $('crmAtivo').checked = c.crm.ativo !== false;
+  $('crmEtapa').innerHTML = '<option value="">Primeira etapa do funil</option>' +
+    LV.etapas.map(e => `<option value="${esc(e.id)}" ${String(e.id) === String(c.crm.etapaInicialId || '') ? 'selected' : ''}>${esc(e.nome)}</option>`).join('') +
+    (c.crm.etapaInicialId && !LV.etapas.some(e => String(e.id) === String(c.crm.etapaInicialId)) ? `<option value="${esc(c.crm.etapaInicialId)}" selected>Etapa ID ${esc(c.crm.etapaInicialId)}</option>` : '');
+  $('dicaCrm').textContent = LV.etapas.length ? '' : 'Não encontrei etapas no seu funil. Crie as etapas no CRM da LeadVox para os leads aparecerem lá.';
+  $('importVend').hidden = !LV.usuarios.length;
   irPara(0); atualizar(); mostrarDicaTicket(); renderLiga();
 }
 function marcar(nome, valor) { document.querySelectorAll(`input[name="${nome}"]`).forEach(i => i.checked = i.value === valor); }
@@ -448,7 +469,7 @@ function renderVend(lista) {
       <button class="tirar" type="button" data-tirar aria-label="Remover vendedor">×</button>
       <div class="tres">
         <div><label>Nome</label><input data-f="nome" maxlength="40" value="${esc(v.nome || '')}"></div>
-        <div><label>ID do usuário</label><input data-f="userId" inputmode="numeric" value="${esc(v.userId || '')}"></div>
+        <div><label>${LV.usuarios.length ? 'Usuário na LeadVox' : 'ID do usuário'}</label>${campoUsuario(v.userId)}</div>
       </div>
       <div class="duas">
         <div><label>Setor</label><select data-f="departamento">${(deps.length ? deps : [d0]).map(n => `<option ${String(v.departamento || d0) === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></div>
@@ -457,6 +478,13 @@ function renderVend(lista) {
     </div>`).join('') || '<p class="muted" style="margin-top:10px">Nenhum atendente cadastrado.</p>';
   $('addVend').disabled = lista.length >= 20;
   atualizarResp();
+}
+function campoUsuario(id) {
+  if (!LV.usuarios.length) return `<input data-f="userId" inputmode="numeric" value="${esc(id || '')}">`;
+  const achou = LV.usuarios.some(u => String(u.id) === String(id));
+  return `<select data-f="userId"><option value="">Escolha…</option>` +
+    LV.usuarios.map(u => `<option value="${esc(u.id)}" ${String(u.id) === String(id) ? 'selected' : ''}>${esc(u.nome)} (ID ${esc(u.id)})</option>`).join('') +
+    (id && !achou ? `<option value="${esc(id)}" selected>ID ${esc(id)} (não está mais na LeadVox)</option>` : '') + `</select>`;
 }
 function lerLista(sel, campos) {
   return [...document.querySelectorAll(sel)].map(el => { const o = {}; campos.forEach(f => o[f] = el.querySelector(`[data-f="${f}"]`).value.trim()); return o; });
@@ -477,6 +505,17 @@ function atualizarResp() {
 $('addDep').addEventListener('click', () => { const l = lerLista('[data-dep]', ['nome', 'queueId', 'finalidade']); if (l.length >= 15) return; l.push({}); renderDeps(l); renderVend(lerVend()); });
 document.addEventListener('change', (ev) => { if (ev.target.closest('[data-dep]') && ev.target.dataset.f === 'nome') { renderVend(lerVend()); atualizarResp(); } });
 $('addVend').addEventListener('click', () => { const l = lerVend(); if (l.length >= 20) return; l.push({}); renderVend(l); });
+$('importVend').addEventListener('click', () => {
+  const l = lerVend();
+  LV.usuarios.forEach(u => { if (l.length < 20 && !l.some(v => String(v.userId) === String(u.id))) l.push({ nome: u.nome || '', userId: u.id, apelidos: [] }); });
+  renderVend(l); atualizar();
+});
+document.addEventListener('change', (ev) => {
+  const s = ev.target.closest('[data-vend] select[data-f="userId"]'); if (!s) return;
+  const u = LV.usuarios.find(x => String(x.id) === s.value), nome = s.closest('[data-vend]').querySelector('[data-f="nome"]');
+  if (u && nome && !nome.value.trim()) nome.value = u.nome || '';
+  atualizarResp();
+});
 document.addEventListener('click', (ev) => {
   const t = ev.target.closest('[data-tirar]');
   if (t) { const emVend = !!t.closest('#listaVend'); t.parentElement.remove(); if (emVend && !document.querySelector('[data-vend]')) renderVend([]); atualizarResp(); atualizar(); return; }
@@ -526,7 +565,8 @@ function coletar() {
     lead: { enviarAutoCerto: FONTE === 'autocerto' && $('enviarAC').checked, codigoMidia: CFG.lead.codigoMidia || 12, interesse: CFG.lead.interesse || 2,
       whatsappGerente: $('gerente').value.replace(/\D/g, '') },
     followup: { primeiroMin: +$('fu1').value, segundoMin: +$('fu2').value,
-      transferir: { quando, personalizadoMin: quando === 'personalizado' ? Math.round(+$('persN').value * +$('persU').value) : null } }
+      transferir: { quando, personalizadoMin: quando === 'personalizado' ? Math.round(+$('persN').value * +$('persU').value) : null } },
+    crm: { ativo: $('crmAtivo').checked, etapaInicialId: $('crmEtapa').value ? +$('crmEtapa').value : null }
   };
 }
 
@@ -541,6 +581,7 @@ function atualizar() {
   $('previa').innerHTML = `${abre} Me chamo <b>${esc(nome)}</b>, ${art} aqui da <b>${esc(loja)}</b>. Como posso te chamar?<span class="hora">14:32</span>`;
 
   $('blocoGerente').hidden = !$('enviarAC').checked;
+  $('blocoCrm').hidden = !$('crmAtivo').checked;
   $('textoDestino').textContent = (FONTE === 'autocerto' && c.lead.enviarAutoCerto)
     ? 'Quando o cliente estiver qualificado, a IA cadastra o lead no AutoCerto, avisa o gerente e passa o atendimento para a equipe.'
     : 'Quando o cliente estiver qualificado, a IA passa o atendimento para o departamento Comercial com um resumo da conversa.' + (FONTE !== 'autocerto' ? ' O envio para o AutoCerto só existe para lojas com estoque no AutoCerto.' : '');
@@ -592,6 +633,7 @@ function montarResumo() {
     ['Departamentos', deps],
     ['Distribuição', c.distribuicao.modo === 'rodizio' ? 'Rodízio entre ' + c.distribuicao.vendedores.length + ' atendentes, por setor' : 'Para a fila do setor'],
     ['Lead', c.lead.enviarAutoCerto ? 'Vai para o AutoCerto e avisa o gerente' : 'Transferido para o Comercial'],
+    ['Funil (CRM)', c.crm.ativo ? 'Lança a oportunidade na etapa ' + ((LV.etapas.find(e => String(e.id) === String(c.crm.etapaInicialId)) || {}).nome || (c.crm.etapaInicialId ? 'ID ' + c.crm.etapaInicialId : 'inicial do funil')) : 'Não lança no funil'],
     ['Follow-up', fmt(c.followup.primeiroMin) + ' e ' + fmt(c.followup.segundoMin) + ', transfere ' + tQ]
   ];
   $('resumo').innerHTML = linhas.map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('');
