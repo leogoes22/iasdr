@@ -363,6 +363,8 @@
         <p class="muted">Crie um departamento para cada fila da loja. Os de <b>Venda</b> recebem quem quer comprar: diga se atendem carro, moto ou os dois. Se houver mais de um para o mesmo tipo (ex.: duas lojas de moto), a IA alterna um cliente para cada. Os de <b>Outro assunto</b> recebem documentação, pós-venda etc.: diga o que vai para cada um.</p>
         <div id="listaDeps"></div>
         <button class="leve" id="addDep">Adicionar departamento</button>
+        <button class="leve" id="importDeps" style="margin-left:16px" hidden>Trazer os departamentos da LeadVox</button>
+        <p class="muted" id="dicaDeps" style="font-size:13px;margin-top:4px"></p>
         <div class="dica" id="dicaTicket" hidden></div>
       </div>
       <div class="card">
@@ -466,7 +468,7 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 let PIN = '', CFG = null, CANAL = '', FONTE = '', passoAtual = 0, ticket = null;
 let ATIVO = false, BLOQ = false, CONFIGURADA = false;
-let LV = { usuarios: [], etapas: [] };   // usuários e funil da conta LeadVox (vem do servidor)
+let LV = { usuarios: [], etapas: [], filas: [] };   // usuários e funil da conta LeadVox (vem do servidor)
 function renderLiga() {
   const card = $('cardLiga'), bt = $('btLiga');
   card.classList.toggle('on', ATIVO && !BLOQ);
@@ -520,7 +522,7 @@ async function chamarLogin(corpo) {
 function aplicarCarregado(j) {
   CANAL = j.canal || ''; FONTE = j.fonte || '';
   if (j.config && j.config.estoque && j.config.estoque.fonte === 'leadvox') FONTE = 'leadvox';
-  LV = { usuarios: (j.leadvox && Array.isArray(j.leadvox.usuarios)) ? j.leadvox.usuarios : [], etapas: (j.leadvox && Array.isArray(j.leadvox.etapas)) ? j.leadvox.etapas : [] };
+  LV = { usuarios: (j.leadvox && Array.isArray(j.leadvox.usuarios)) ? j.leadvox.usuarios : [], etapas: (j.leadvox && Array.isArray(j.leadvox.etapas)) ? j.leadvox.etapas : [], filas: (j.leadvox && Array.isArray(j.leadvox.filas)) ? j.leadvox.filas : [] };
   const cc = j.config || {}; ATIVO = cc.ativo === true; BLOQ = cc.bloqueado === true; CONFIGURADA = cc.configurada === true;
   CFG = mesclar(j.config || {});
 }
@@ -681,6 +683,7 @@ function abrirApp() {
     (c.crm.etapaInicialId && !LV.etapas.some(e => String(e.id) === String(c.crm.etapaInicialId)) ? `<option value="${esc(c.crm.etapaInicialId)}" selected>Etapa ID ${esc(c.crm.etapaInicialId)}</option>` : '');
   $('dicaCrm').textContent = LV.etapas.length ? '' : 'Não encontrei etapas no seu funil. Crie as etapas no CRM da LeadVox para os leads aparecerem lá.';
   $('importVend').hidden = !LV.usuarios.length;
+  $('importDeps').hidden = !LV.filas.length;
   irPara(0); atualizar(); mostrarDicaTicket(); renderLiga(); prepararEstoque();
 }
 function marcar(nome, valor) { document.querySelectorAll(`input[name="${nome}"]`).forEach(i => i.checked = i.value === valor); }
@@ -693,7 +696,7 @@ function renderDeps(lista) {
       ${i > 0 ? '<button class="tirar" type="button" data-tirar aria-label="Remover departamento">×</button>' : ''}
       <div class="tres">
         <div><label>Nome do departamento</label><input data-f="nome" maxlength="40" value="${esc(d.nome || '')}" placeholder="${i === 0 ? 'Ex.: Venda Carro' : 'Ex.: Venda Moto ou Documentação'}"></div>
-        <div><label>ID da fila</label><input data-f="queueId" inputmode="numeric" value="${esc(d.queueId || '')}"></div>
+        <div><label>${LV.filas.length ? 'Fila na LeadVox' : 'ID da fila'}</label>${campoFila(d.queueId)}</div>
       </div>
       <div class="tres3">
         <div><label>Tipo</label><select data-f="tipo"><option value="venda" ${tipoDe(d, i) === 'venda' ? 'selected' : ''}>Venda</option><option value="outro" ${tipoDe(d, i) === 'outro' ? 'selected' : ''}>Outro assunto</option></select></div>
@@ -702,6 +705,19 @@ function renderDeps(lista) {
       </div>
       <label>O que vai para ele</label><input data-f="finalidade" maxlength="160" value="${esc(d.finalidade || '')}" placeholder="${tipoDe(d, i) === 'venda' ? 'Compra, troca, financiamento, visita' : 'Ex.: transferência, recibo, IPVA, multa'}">
     </div>`).join('');
+}
+function campoFila(id) {
+  if (!LV.filas.length) return `<input data-f="queueId" inputmode="numeric" value="${esc(id || '')}">`;
+  const achou = LV.filas.some(f => String(f.id) === String(id));
+  return `<select data-f="queueId"><option value="">Escolha…</option>` +
+    LV.filas.map(f => `<option value="${esc(f.id)}" ${String(f.id) === String(id) ? 'selected' : ''}>${esc(f.nome)} (ID ${esc(f.id)})</option>`).join('') +
+    (id && !achou ? `<option value="${esc(id)}" selected>ID ${esc(id)} (não está mais na LeadVox)</option>` : '') + `</select>`;
+}
+function palpiteDep(nome) {
+  const n = String(nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const venda = /vend|comercial|consult|loja|novos|seminovo/.test(n);
+  return { tipo: venda ? 'venda' : 'outro', atende: /moto/.test(n) ? 'moto' : /carro|auto/.test(n) ? 'carro' : 'ambos',
+    finalidade: venda ? 'Compra, troca, financiamento, visita' : '' };
 }
 function tipoDe(d, i) { return d.tipo === 'venda' || d.tipo === 'outro' ? d.tipo : (i === 0 ? 'venda' : 'outro'); }
 function distDe(d) { return d.distribuicao === 'rodizio' || d.distribuicao === 'fila' ? d.distribuicao : ((CFG && CFG.distribuicao && CFG.distribuicao.modo === 'rodizio') ? 'rodizio' : 'fila'); }
@@ -748,6 +764,18 @@ function atualizarResp() {
   $('respConsig').value = opcoes.includes(atual) ? atual : '';
   $('dicaResp').textContent = vs.length ? 'Escolha um setor (a fila dele, com rodízio se estiver ligado) ou uma pessoa.' : 'Para escolher uma pessoa, cadastre o atendente com nome e ID acima. Setores já aparecem na lista.';
 }
+$('importDeps').addEventListener('click', () => {
+  const l = lerLista('[data-dep]', CAMPOS_DEP).filter(d => d.nome || d.queueId);
+  let novos = 0;
+  LV.filas.forEach(f => { if (l.length < 15 && !l.some(d => String(d.queueId) === String(f.id))) { l.push({ nome: f.nome.slice(0, 40), queueId: f.id, distribuicao: 'fila', ...palpiteDep(f.nome) }); novos++; } });
+  renderDeps(l); renderVend(lerVend()); atualizar();
+  $('dicaDeps').textContent = novos ? `Trouxe ${novos} departamento(s). Confira o Tipo (venda ou outro assunto) e o que vai para cada um.` : 'Todos os departamentos da LeadVox já estão na lista.';
+});
+document.addEventListener('change', (ev) => {
+  if (!ev.target.matches('[data-dep] select[data-f="queueId"]')) return;
+  const box = ev.target.closest('[data-dep]'), nome = box.querySelector('[data-f="nome"]'), f = LV.filas.find(x => String(x.id) === ev.target.value);
+  if (f && !nome.value.trim()) { nome.value = f.nome.slice(0, 40); renderVend(lerVend()); atualizarResp(); }
+});
 $('addDep').addEventListener('click', () => { const l = lerLista('[data-dep]', CAMPOS_DEP); if (l.length >= 15) return; l.push({ tipo: 'venda' }); renderDeps(l); renderVend(lerVend()); });
 document.addEventListener('change', (ev) => { if (ev.target.closest('[data-dep]') && ev.target.dataset.f === 'nome') { renderVend(lerVend()); atualizarResp(); } });
 $('addVend').addEventListener('click', () => { const l = lerVend(); if (l.length >= 20) return; l.push({}); renderVend(l); });
