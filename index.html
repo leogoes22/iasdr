@@ -123,6 +123,46 @@
   .barra { position: fixed; left: 0; right: 0; bottom: 0; background: var(--painel); border-top: 1px solid var(--linha); padding: 10px 16px; }
   .barra .in { max-width: 640px; margin: 0 auto; display: flex; gap: 10px; justify-content: space-between; align-items: center; }
   .salvo { background: var(--verde-fundo); border: 1px solid var(--verde); color: var(--verde); border-radius: 14px; padding: 16px; margin-top: 14px; }
+
+  /* IA × Estoque */
+  .vistas { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: var(--painel); border: 1px solid var(--linha); border-radius: 99px; padding: 4px; margin-top: 14px; }
+  .vistas button { border: 0; border-radius: 99px; padding: 8px 10px; font-size: 14px; }
+  .vistas button[aria-pressed="true"] { background: var(--verde); color: var(--navy); font-weight: 700; }
+  #vistaEstoque { display: none; }
+  .modo-estoque #vistaEstoque { display: block; }
+  .modo-estoque #cardLiga, .modo-estoque #passos, .modo-estoque .passo, .modo-estoque .barra { display: none !important; }
+
+  /* estoque */
+  .est-topo { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .est-filtros { display: grid; grid-template-columns: 1fr 150px; gap: 8px; margin-top: 12px; }
+  @media (max-width: 420px) { .est-filtros { grid-template-columns: 1fr; } }
+  .veic { display: grid; grid-template-columns: 84px 1fr auto; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--linha); }
+  .veic:first-child { border-top: 0; }
+  .veic .capa { width: 84px; height: 63px; border-radius: 8px; object-fit: cover; background: var(--navy); border: 1px solid var(--linha); display: grid; place-items: center; color: var(--suave); font-size: 11px; }
+  .veic b { display: block; font-weight: 700; line-height: 1.25; overflow-wrap: anywhere; }
+  .veic small { color: var(--suave); display: block; }
+  .veic .preco { color: var(--verde); font-weight: 700; font-size: 14px; }
+  .st { display: inline-block; font-size: 11.5px; border-radius: 99px; padding: 1px 8px; margin-top: 4px; border: 1px solid var(--linha); color: var(--suave); }
+  .st.disponivel { color: var(--verde); border-color: rgba(43,232,123,.4); }
+  .st.reservado { color: #ffc861; border-color: rgba(255,200,97,.4); }
+  .st.vendido { color: var(--erro); border-color: rgba(255,107,107,.4); }
+  .soltar { display: block; border: 2px dashed var(--linha); border-radius: var(--raio); padding: 18px 12px; text-align: center; margin-top: 8px; cursor: pointer; font-weight: 400; }
+  .soltar.sobre { border-color: var(--verde); background: var(--verde-fundo); }
+  .soltar input { display: none; }
+  .fotos { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; margin-top: 10px; }
+  .foto { position: relative; border: 1px solid var(--linha); border-radius: 8px; overflow: hidden; background: var(--navy); }
+  .foto img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
+  .foto .acoes { display: flex; justify-content: space-between; padding: 2px; }
+  .foto .acoes button { padding: 4px 9px; border: 0; font-size: 15px; color: var(--texto); }
+  .foto .acoes button:disabled { opacity: .25; }
+  .foto .capa-tag { position: absolute; top: 6px; left: 6px; background: var(--verde); color: var(--navy); font: 700 11px "DM Sans"; border-radius: 99px; padding: 1px 8px; }
+  .foto.enviando img { opacity: .35; }
+  .foto.enviando::after { content: "Enviando…"; position: absolute; inset: 0 0 32px; display: grid; place-items: center; font-size: 12px; }
+  .est-botoes { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .est-botoes .principal { flex: 1 1 180px; }
+  button.perigo { color: var(--erro); border-color: rgba(255,107,107,.4); }
+  .check-lin { display: flex; gap: 8px; align-items: center; font-weight: 400; }
+  .check-lin input { width: auto; }
 </style>
 </head>
 <body>
@@ -143,6 +183,10 @@
     <div class="topo"><h1 id="titulo">Configuração da IA</h1><button class="leve" id="btSair" type="button" hidden>Sair</button></div>
     <p class="muted" id="subtitulo"></p>
     <span class="selo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Acesso liberado</span>
+    <div class="vistas" id="vistas" role="group" aria-label="Escolha o que editar" hidden>
+      <button type="button" data-vista="ia" aria-pressed="true">Configurar IA</button>
+      <button type="button" data-vista="estoque" aria-pressed="false">Estoque</button>
+    </div>
     <div class="card liga" id="cardLiga">
       <div class="liga-lin">
         <div><b><span class="ponto-st"></span><span id="ligaTitulo">Sua IA</span></b><p class="muted" id="ligaTexto" style="margin-top:4px"></p></div>
@@ -151,6 +195,78 @@
       <p class="erro" id="erroLiga" hidden></p>
     </div>
     <nav class="passos" id="passos" aria-label="Etapas"></nav>
+
+    <!-- ESTOQUE LEADVOX -->
+    <div id="vistaEstoque">
+      <div class="card" id="estLista">
+        <div class="est-topo">
+          <div><h2>Seu estoque</h2><p class="muted" id="estResumo">Carregando…</p></div>
+          <button class="principal" type="button" id="btNovoVeic">+ Cadastrar veículo</button>
+        </div>
+        <div class="est-filtros">
+          <input id="estBusca" type="search" placeholder="Buscar marca, modelo ou ano" aria-label="Buscar no estoque">
+          <select id="estFiltro" aria-label="Filtrar por situação">
+            <option value="">Todos</option><option value="disponivel">Disponíveis</option><option value="reservado">Reservados</option>
+            <option value="pausado">Pausados</option><option value="vendido">Vendidos</option>
+          </select>
+        </div>
+        <div id="estItens" style="margin-top:8px"></div>
+        <p class="erro" id="estErro" hidden></p>
+        <p class="muted" style="font-size:13px;margin-top:12px">A IA só oferece os veículos <b>disponíveis</b>. Reservados, pausados e vendidos ficam guardados aqui, mas ela não mostra para o cliente.</p>
+      </div>
+
+      <form class="card" id="estForm" hidden novalidate>
+        <div class="est-topo"><h2 id="estFormTitulo">Cadastrar veículo</h2><button class="leve" type="button" id="btVoltarLista">← Voltar para a lista</button></div>
+        <div class="chips" style="margin-top:12px" role="radiogroup" aria-label="Tipo">
+          <label><input type="radio" name="vTipo" value="moto" checked> Moto</label>
+          <label><input type="radio" name="vTipo" value="carro"> Carro</label>
+        </div>
+        <div class="duas">
+          <div><label for="vMarca">Marca *</label><input id="vMarca" list="listaMarcas" maxlength="40" autocomplete="off"></div>
+          <div><label for="vModelo">Modelo *</label><input id="vModelo" maxlength="80" placeholder="Ex.: CG 160 Fan"></div>
+        </div>
+        <label for="vVersao">Versão <small>(opcional)</small></label><input id="vVersao" maxlength="80" placeholder="Ex.: Start, EX, Flex One">
+        <datalist id="listaMarcas"></datalist>
+        <div class="duas">
+          <div><label for="vAnoFab">Ano de fabricação</label><input id="vAnoFab" inputmode="numeric" maxlength="4"></div>
+          <div><label for="vAnoMod">Ano do modelo</label><input id="vAnoMod" inputmode="numeric" maxlength="4"></div>
+        </div>
+        <div class="duas">
+          <div><label for="vKm">Quilometragem</label><input id="vKm" inputmode="numeric" placeholder="Ex.: 12.500"></div>
+          <div><label for="vPreco">Preço (R$)</label><input id="vPreco" inputmode="decimal" placeholder="Ex.: 18.900"></div>
+        </div>
+        <div class="duas">
+          <div><label for="vCor">Cor</label><input id="vCor" maxlength="30" list="listaCores"></div>
+          <div><label for="vCategoria">Categoria</label><select id="vCategoria"></select></div>
+        </div>
+        <datalist id="listaCores"><option>Preta</option><option>Branca</option><option>Prata</option><option>Cinza</option><option>Vermelha</option><option>Azul</option><option>Verde</option><option>Amarela</option><option>Laranja</option><option>Marrom</option><option>Bege</option><option>Vinho</option></datalist>
+        <div class="duas">
+          <div><label for="vCambio">Câmbio</label><select id="vCambio"><option value="">—</option><option>Manual</option><option>Automático</option><option>CVT</option><option>Automatizado</option></select></div>
+          <div><label for="vComb">Combustível</label><select id="vComb"><option value="">—</option><option>Flex</option><option>Gasolina</option><option>Etanol</option><option>Diesel</option><option>Elétrico</option><option>Híbrido</option></select></div>
+        </div>
+        <div class="duas">
+          <div><label for="vStatus">Situação</label><select id="vStatus"><option value="disponivel">Disponível</option><option value="reservado">Reservado</option><option value="pausado">Pausado (não mostrar)</option><option value="vendido">Vendido</option></select></div>
+          <div><label for="vPlaca">Final da placa <small>(opcional)</small></label><input id="vPlaca" inputmode="numeric" maxlength="1"></div>
+        </div>
+        <label for="vOpc">Opcionais <small>(separe por vírgula)</small></label><input id="vOpc" maxlength="1000" placeholder="Ex.: ABS, partida elétrica, painel digital">
+        <label for="vDesc">Descrição <small>(a IA usa esse texto para falar do veículo)</small></label><textarea id="vDesc" maxlength="2000" placeholder="Ex.: Único dono, revisões na concessionária, pneus novos."></textarea>
+        <label class="check-lin" style="margin-top:12px"><input type="checkbox" id="vDestaque"> Destaque (aparece primeiro para a IA)</label>
+
+        <p style="font-weight:500;font-size:14px;margin:18px 0 0">Fotos <small class="muted" style="font-weight:400">(até 20 · a primeira é a capa)</small></p>
+        <label class="soltar" id="soltar" tabindex="0">
+          <input type="file" id="vArquivos" accept="image/jpeg,image/png,image/webp" multiple>
+          <b style="color:var(--verde)">Escolher fotos</b> <span class="muted">ou arraste aqui</span>
+          <small class="muted" style="display:block;margin-top:4px">As fotos são reduzidas automaticamente antes de enviar.</small>
+        </label>
+        <div class="fotos" id="vFotos"></div>
+
+        <p class="erro" id="estFormErro" hidden></p>
+        <div class="est-botoes">
+          <button class="principal" type="submit" id="btSalvarVeic">Salvar veículo</button>
+          <button type="button" class="perigo" id="btExcluirVeic" hidden>Excluir</button>
+        </div>
+      </form>
+    </div>
 
     <!-- 1 IA -->
     <section class="passo" data-passo="Sua IA">
@@ -403,6 +519,7 @@ async function chamarLogin(corpo) {
 // ── entrada ──
 function aplicarCarregado(j) {
   CANAL = j.canal || ''; FONTE = j.fonte || '';
+  if (j.config && j.config.estoque && j.config.estoque.fonte === 'leadvox') FONTE = 'leadvox';
   LV = { usuarios: (j.leadvox && Array.isArray(j.leadvox.usuarios)) ? j.leadvox.usuarios : [], etapas: (j.leadvox && Array.isArray(j.leadvox.etapas)) ? j.leadvox.etapas : [] };
   const cc = j.config || {}; ATIVO = cc.ativo === true; BLOQ = cc.bloqueado === true; CONFIGURADA = cc.configurada === true;
   CFG = mesclar(j.config || {});
@@ -537,7 +654,7 @@ if (MODO === 'login') {
 function abrirApp() {
   $('telaPorta').hidden = true; $('telaApp').hidden = false; $('btSair').hidden = MODO !== 'login';
   $('titulo').textContent = CFG.loja.nome || 'Configuração da IA';
-  $('subtitulo').textContent = 'Estoque pelo ' + (FONTE === 'revendamais' ? 'Revenda Mais' : 'AutoCerto') + ', WhatsApp ' + (CANAL === 'waba' ? 'oficial' : 'conectado por QR code') + '.';
+  $('subtitulo').textContent = 'Estoque ' + (FONTE === 'leadvox' ? 'LeadVox' : 'pelo ' + (FONTE === 'revendamais' ? 'Revenda Mais' : 'AutoCerto')) + ', WhatsApp ' + (CANAL === 'waba' ? 'oficial' : 'conectado por QR code') + '.';
   const c = CFG;
   $('iaNome').value = c.ia.nome; $('iaGenero').value = c.ia.genero; marcar('tom', c.ia.tom); $('iaDif').value = (c.ia.diferenciais || []).join('\n');
   $('ljNome').value = c.loja.nome; marcar('tipo', c.loja.tipo); $('ljEnd').value = c.loja.endereco; $('ljCidade').value = c.loja.cidade; $('ljUf').value = c.loja.uf;
@@ -564,7 +681,7 @@ function abrirApp() {
     (c.crm.etapaInicialId && !LV.etapas.some(e => String(e.id) === String(c.crm.etapaInicialId)) ? `<option value="${esc(c.crm.etapaInicialId)}" selected>Etapa ID ${esc(c.crm.etapaInicialId)}</option>` : '');
   $('dicaCrm').textContent = LV.etapas.length ? '' : 'Não encontrei etapas no seu funil. Crie as etapas no CRM da LeadVox para os leads aparecerem lá.';
   $('importVend').hidden = !LV.usuarios.length;
-  irPara(0); atualizar(); mostrarDicaTicket(); renderLiga();
+  irPara(0); atualizar(); mostrarDicaTicket(); renderLiga(); prepararEstoque();
 }
 function marcar(nome, valor) { document.querySelectorAll(`input[name="${nome}"]`).forEach(i => i.checked = i.value === valor); }
 function valor(nome) { const i = document.querySelector(`input[name="${nome}"]:checked`); return i ? i.value : null; }
@@ -789,6 +906,202 @@ $('btSalvar').addEventListener('click', async () => {
     $('salvo').innerHTML = `<b>Configuração salva.</b> Esta é a versão ${esc(j.versao)}. Você pode voltar aqui e mudar o que quiser quando precisar.${ATIVO || BLOQ ? '' : ' Para a IA começar a responder, ligue a chave lá no topo.'}`;
   } catch (e) { $('erroSalvar').hidden = false; $('erroSalvar').textContent = e.message; }
   bt.disabled = false; bt.textContent = 'Salvar configuração';
+});
+
+// ═══════════════ ESTOQUE LEADVOX (adicional contratado na LeadVox) ═══════════════
+const ESTOQUE_API = 'https://webhook.lv-mktdeconversa.com/webhook/sdr-estoque';
+const FOTO_PREFIXO = 'https://qpcwqrkxzajekqoxklus.supabase.co/storage/v1/object/public/sdr-estoque/';
+const MARCAS = {
+  moto: ['Honda', 'Yamaha', 'Suzuki', 'Kawasaki', 'BMW', 'Triumph', 'Harley-Davidson', 'Ducati', 'KTM', 'Royal Enfield', 'Dafra', 'Shineray', 'Haojue', 'Kasinski', 'Mottu', 'Voltz', 'Bajaj', 'Avelloz'],
+  carro: ['Chevrolet', 'Fiat', 'Volkswagen', 'Ford', 'Toyota', 'Hyundai', 'Renault', 'Honda', 'Jeep', 'Nissan', 'Peugeot', 'Citroën', 'Mitsubishi', 'Kia', 'BYD', 'Caoa Chery', 'GWM', 'BMW', 'Mercedes-Benz', 'Audi', 'Volvo', 'Ram', 'Land Rover']
+};
+const CATEGORIAS = {
+  moto: ['Street', 'Trail', 'Big Trail', 'Scooter', 'Custom', 'Esportiva', 'Naked', 'Touring', 'Ciclomotor', 'Elétrica', 'Quadriciclo'],
+  carro: ['Hatch', 'Sedã', 'SUV', 'Picape', 'Utilitário', 'Minivan', 'Perua', 'Esportivo', 'Conversível', 'Van']
+};
+const ST_NOME = { disponivel: 'Disponível', reservado: 'Reservado', pausado: 'Pausado', vendido: 'Vendido' };
+let ESTOQUE = [], ESTOQUE_OK = false, EDITANDO = null, FOTOS = [], SUJO = false;
+
+async function chamarEstoque(corpo) {
+  const r = await fetch(ESTOQUE_API, { method: 'POST', body: new URLSearchParams({ dados: JSON.stringify({ token: TOKEN, ...corpo }) }) });
+  let j = {}; try { j = await r.json(); } catch (e) {}
+  if (j.sessao === false) { guardar.limpar(); TOKEN = ''; mostrarLogin('Sua sessão expirou. Entre de novo.'); throw new Error(j.erro || 'Sessão expirada.'); }
+  if (!r.ok || j.ok === false) throw new Error(j.erro || ('Não consegui falar com o servidor (HTTP ' + r.status + ').'));
+  return j;
+}
+function prepararEstoque() {
+  $('vistas').hidden = FONTE !== 'leadvox';
+  ESTOQUE_OK = false; SUJO = false;
+  trocarVista('ia', true);
+}
+function trocarVista(v, silencioso) {
+  if (v === 'ia' && !silencioso && SUJO && !$('estForm').hidden && !confirm('Sair sem salvar o veículo?')) return;
+  document.body.classList.toggle('modo-estoque', v === 'estoque');
+  $('vistas').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.vista === v)));
+  if (v === 'estoque') {
+    mostrarListaEst();
+    if (MODO !== 'login') { $('estItens').innerHTML = ''; $('estResumo').textContent = ''; $('btNovoVeic').disabled = true;
+      erroEst('O estoque só abre com o login de e-mail e senha. Se ainda não tem, peça o seu acesso para a LeadVox.'); return; }
+    $('btNovoVeic').disabled = false;
+    if (!ESTOQUE_OK) carregarEstoque();
+  }
+  window.scrollTo(0, 0);
+}
+$('vistas').addEventListener('click', (ev) => { const b = ev.target.closest('[data-vista]'); if (b) trocarVista(b.dataset.vista); });
+
+function erroEst(m) { $('estErro').hidden = !m; $('estErro').textContent = m || ''; }
+async function carregarEstoque() {
+  erroEst(''); $('estResumo').textContent = 'Carregando…'; $('estItens').innerHTML = '';
+  try { const j = await chamarEstoque({ acao: 'listar' }); ESTOQUE = Array.isArray(j.veiculos) ? j.veiculos : []; ESTOQUE_OK = true; }
+  catch (e) { erroEst(e.message); $('estResumo').textContent = ''; return; }
+  renderEstoque();
+}
+const brl = (n) => n == null || n === '' ? '' : Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: Number(n) % 1 ? 2 : 0 });
+const milhar = (n) => n == null || n === '' ? '' : Number(n).toLocaleString('pt-BR');
+const tituloV = (v) => [v.marca, v.modelo, v.versao].filter(Boolean).join(' ');
+const anoV = (v) => v.ano_fab && v.ano_mod && v.ano_fab !== v.ano_mod ? v.ano_fab + '/' + v.ano_mod : (v.ano_mod || v.ano_fab || '');
+function fotoSegura(u) { return typeof u === 'string' && u.startsWith(FOTO_PREFIXO) ? u : ''; }
+function renderEstoque() {
+  const disp = ESTOQUE.filter(v => v.status === 'disponivel').length;
+  $('estResumo').textContent = ESTOQUE.length ? `${ESTOQUE.length} veículo(s) · ${disp} disponível(is) para a IA` : 'Nenhum veículo cadastrado ainda.';
+  const busca = $('estBusca').value.trim().toLowerCase(), filtro = $('estFiltro').value;
+  const lista = ESTOQUE.filter(v => (!filtro || v.status === filtro) && (!busca || (tituloV(v) + ' ' + anoV(v) + ' ' + (v.cor || '')).toLowerCase().includes(busca)));
+  $('estItens').innerHTML = lista.map(v => {
+    const capa = fotoSegura((v.fotos || [])[0]);
+    return `<div class="veic">
+      ${capa ? `<img class="capa" src="${esc(capa)}" alt="" loading="lazy">` : '<div class="capa">sem foto</div>'}
+      <div><b>${v.destaque ? '★ ' : ''}${esc(tituloV(v))}</b>
+        <small>${esc([anoV(v), v.km != null ? milhar(v.km) + ' km' : '', v.cor].filter(Boolean).join(' · '))}</small>
+        ${v.preco ? `<span class="preco">${esc(brl(v.preco))}</span> ` : ''}<span class="st ${esc(v.status)}">${esc(ST_NOME[v.status] || v.status)}</span></div>
+      <button type="button" data-editar="${esc(v.id)}">Editar</button>
+    </div>`;
+  }).join('') || (ESTOQUE.length ? '<p class="muted" style="margin-top:10px">Nada encontrado com esse filtro.</p>'
+    : '<p class="muted" style="margin-top:10px">Clique em <b>+ Cadastrar veículo</b> para colocar o primeiro. Assim que salvar, a IA já passa a oferecer.</p>');
+}
+$('estBusca').addEventListener('input', renderEstoque);
+$('estFiltro').addEventListener('change', renderEstoque);
+$('estItens').addEventListener('click', (ev) => { const b = ev.target.closest('[data-editar]'); if (b) abrirForm(ESTOQUE.find(v => String(v.id) === b.dataset.editar)); });
+$('btNovoVeic').addEventListener('click', () => abrirForm(null));
+$('btVoltarLista').addEventListener('click', () => { if (SUJO && !confirm('Sair sem salvar o veículo?')) return; mostrarListaEst(); });
+function mostrarListaEst() { $('estForm').hidden = true; $('estLista').hidden = false; SUJO = false; }
+
+function preencherOpcoes(tipo, catAtual) {
+  $('listaMarcas').innerHTML = MARCAS[tipo].map(m => `<option value="${esc(m)}">`).join('');
+  const cats = CATEGORIAS[tipo];
+  $('vCategoria').innerHTML = '<option value="">—</option>' + cats.map(c => `<option ${c === catAtual ? 'selected' : ''}>${esc(c)}</option>`).join('') +
+    (catAtual && !cats.includes(catAtual) ? `<option selected>${esc(catAtual)}</option>` : '');
+}
+function abrirForm(v) {
+  EDITANDO = v ? v.id : null; const x = v || { tipo: CFG && CFG.loja.tipo === 'carro' ? 'carro' : 'moto', status: 'disponivel' };
+  $('estFormTitulo').textContent = v ? 'Editar veículo' : 'Cadastrar veículo';
+  marcar('vTipo', x.tipo === 'carro' ? 'carro' : 'moto'); preencherOpcoes(x.tipo === 'carro' ? 'carro' : 'moto', x.categoria || '');
+  $('vMarca').value = x.marca || ''; $('vModelo').value = x.modelo || ''; $('vVersao').value = x.versao || '';
+  $('vAnoFab').value = x.ano_fab || ''; $('vAnoMod').value = x.ano_mod || ''; $('vKm').value = x.km != null ? milhar(x.km) : '';
+  $('vPreco').value = x.preco ? Number(x.preco).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) : '';
+  $('vCor').value = x.cor || ''; $('vCambio').value = x.cambio || ''; $('vComb').value = x.combustivel || '';
+  $('vStatus').value = x.status || 'disponivel'; $('vPlaca').value = x.placa_final || '';
+  $('vOpc').value = x.opcionais || ''; $('vDesc').value = x.descricao || ''; $('vDestaque').checked = !!x.destaque;
+  FOTOS = (x.fotos || []).map(fotoSegura).filter(Boolean).map(url => ({ url, previa: url, enviando: false }));
+  renderFotos();
+  $('btExcluirVeic').hidden = !v; $('estFormErro').hidden = true;
+  $('estLista').hidden = true; $('estForm').hidden = false; SUJO = false;
+  window.scrollTo(0, 0); $('vMarca').focus();
+}
+document.addEventListener('change', (ev) => { if (ev.target.name === 'vTipo') preencherOpcoes(ev.target.value, $('vCategoria').value); });
+$('estForm').addEventListener('input', () => { SUJO = true; });
+['vAnoFab', 'vAnoMod', 'vPlaca'].forEach(id => $(id).addEventListener('input', () => { $(id).value = $(id).value.replace(/\D/g, ''); }));
+$('vKm').addEventListener('input', () => { const d = $('vKm').value.replace(/\D/g, '').slice(0, 7); $('vKm').value = d ? Number(d).toLocaleString('pt-BR') : ''; });
+$('vPreco').addEventListener('blur', () => { const n = numPreco($('vPreco').value); $('vPreco').value = n ? n.toLocaleString('pt-BR', { maximumFractionDigits: 2 }) : ''; });
+function numPreco(s) { const t = String(s || '').replace(/[^\d,.]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'); const n = Number(t); return t && n > 0 ? n : null; }
+
+// ── fotos: reduz no navegador (1600px, JPEG) e envia uma por vez ──
+function renderFotos() {
+  $('vFotos').innerHTML = FOTOS.map((f, i) => `<div class="foto ${f.enviando ? 'enviando' : ''}">
+    <img src="${esc(f.previa)}" alt="Foto ${i + 1}">${i === 0 ? '<span class="capa-tag">Capa</span>' : ''}
+    <div class="acoes">
+      <button type="button" data-mover="${i}" data-dir="-1" aria-label="Mover para a esquerda" ${i === 0 || f.enviando ? 'disabled' : ''}>◀</button>
+      <button type="button" data-tirarfoto="${i}" aria-label="Remover foto" ${f.enviando ? 'disabled' : ''}>×</button>
+      <button type="button" data-mover="${i}" data-dir="1" aria-label="Mover para a direita" ${i === FOTOS.length - 1 || f.enviando ? 'disabled' : ''}>▶</button>
+    </div></div>`).join('');
+  const enviando = FOTOS.some(f => f.enviando);
+  $('btSalvarVeic').disabled = enviando; $('btSalvarVeic').textContent = enviando ? 'Aguarde as fotos…' : 'Salvar veículo';
+}
+$('vFotos').addEventListener('click', (ev) => {
+  const m = ev.target.closest('[data-mover]'), t = ev.target.closest('[data-tirarfoto]');
+  if (m) { const i = +m.dataset.mover, j = i + +m.dataset.dir; if (j < 0 || j >= FOTOS.length) return; [FOTOS[i], FOTOS[j]] = [FOTOS[j], FOTOS[i]]; SUJO = true; renderFotos(); }
+  if (t) { FOTOS.splice(+t.dataset.tirarfoto, 1); SUJO = true; renderFotos(); }
+});
+async function reduzir(arquivo) {
+  let img;
+  try { img = await createImageBitmap(arquivo, { imageOrientation: 'from-image' }); }
+  catch (e) { img = await new Promise((ok, falha) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => falha(new Error('Não consegui abrir a foto ' + arquivo.name + '.')); i.src = URL.createObjectURL(arquivo); }); }
+  const w = img.width || img.naturalWidth, h = img.height || img.naturalHeight, k = Math.min(1, 1600 / Math.max(w, h));
+  const c = document.createElement('canvas'); c.width = Math.round(w * k); c.height = Math.round(h * k);
+  const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+  let q = 0.82, d = c.toDataURL('image/jpeg', q);
+  while (d.length > 3500000 && q > 0.5) { q -= 0.1; d = c.toDataURL('image/jpeg', q); }
+  return d;
+}
+async function adicionarFotos(arquivos) {
+  $('estFormErro').hidden = true;
+  const lista = [...arquivos].filter(a => /^image\//.test(a.type));
+  const vagas = 20 - FOTOS.length;
+  if (!lista.length) return;
+  if (lista.length > vagas) { $('estFormErro').hidden = false; $('estFormErro').textContent = vagas > 0 ? `Cabem mais ${vagas} foto(s). As outras ficaram de fora.` : 'Já tem 20 fotos neste veículo.'; }
+  SUJO = true;
+  for (const arq of lista.slice(0, Math.max(0, vagas))) {
+    const item = { url: '', previa: '', enviando: true };
+    try { item.previa = await reduzir(arq); } catch (e) { $('estFormErro').hidden = false; $('estFormErro').textContent = e.message; continue; }
+    FOTOS.push(item); renderFotos();
+    try { const j = await chamarEstoque({ acao: 'foto', imagem: item.previa }); item.url = fotoSegura(j.url); if (!item.url) throw new Error('o servidor não devolveu o endereço da foto.'); item.enviando = false; }
+    catch (e) { FOTOS.splice(FOTOS.indexOf(item), 1); $('estFormErro').hidden = false; $('estFormErro').textContent = 'Uma foto não foi enviada: ' + e.message; if (!TOKEN) return; }
+    renderFotos();
+  }
+}
+$('vArquivos').addEventListener('change', () => { adicionarFotos($('vArquivos').files); $('vArquivos').value = ''; });
+$('soltar').addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); $('vArquivos').click(); } });
+['dragenter', 'dragover'].forEach(n => $('soltar').addEventListener(n, (ev) => { ev.preventDefault(); $('soltar').classList.add('sobre'); }));
+['dragleave', 'drop'].forEach(n => $('soltar').addEventListener(n, (ev) => { ev.preventDefault(); $('soltar').classList.remove('sobre'); }));
+$('soltar').addEventListener('drop', (ev) => { if (ev.dataTransfer && ev.dataTransfer.files) adicionarFotos(ev.dataTransfer.files); });
+
+// ── salvar / excluir ──
+$('estForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const erro = (m) => { $('estFormErro').hidden = false; $('estFormErro').textContent = m; };
+  $('estFormErro').hidden = true;
+  if (FOTOS.some(f => f.enviando)) return erro('Espere as fotos terminarem de enviar.');
+  const veiculo = {
+    id: EDITANDO, tipo: valor('vTipo') || 'moto',
+    marca: $('vMarca').value.trim(), modelo: $('vModelo').value.trim(), versao: $('vVersao').value.trim(),
+    ano_fab: $('vAnoFab').value, ano_mod: $('vAnoMod').value, km: $('vKm').value.replace(/\D/g, ''),
+    cor: $('vCor').value.trim(), cambio: $('vCambio').value, combustivel: $('vComb').value, categoria: $('vCategoria').value,
+    preco: numPreco($('vPreco').value), descricao: $('vDesc').value.trim(), opcionais: $('vOpc').value.trim(),
+    placa_final: $('vPlaca').value, status: $('vStatus').value, destaque: $('vDestaque').checked,
+    fotos: FOTOS.map(f => f.url).filter(Boolean)
+  };
+  if (!veiculo.marca || !veiculo.modelo) return erro('Preencha a marca e o modelo.');
+  const ano = new Date().getFullYear();
+  for (const [k, n] of [['ano_fab', 'fabricação'], ['ano_mod', 'modelo']]) if (veiculo[k] && (+veiculo[k] < 1950 || +veiculo[k] > ano + 1)) return erro('Confira o ano de ' + n + '.');
+  if (veiculo.ano_fab && veiculo.ano_mod && +veiculo.ano_mod < +veiculo.ano_fab) return erro('O ano do modelo não pode ser menor que o de fabricação.');
+  if (veiculo.status === 'disponivel' && !veiculo.fotos.length && !confirm('Salvar sem fotos? A IA não vai conseguir mandar foto desse veículo para o cliente.')) return;
+  const bt = $('btSalvarVeic'); bt.disabled = true; bt.textContent = 'Salvando…';
+  try {
+    const j = await chamarEstoque({ acao: 'salvar', veiculo });
+    const salvo = { ...veiculo, id: j.id || EDITANDO, ano_fab: +veiculo.ano_fab || null, ano_mod: +veiculo.ano_mod || null, km: veiculo.km === '' ? null : +veiculo.km, atualizado_em: new Date().toISOString() };
+    const i = ESTOQUE.findIndex(v => String(v.id) === String(salvo.id));
+    if (i >= 0) ESTOQUE[i] = salvo; else ESTOQUE.unshift(salvo);
+    ESTOQUE.sort((a, b) => (b.destaque === true) - (a.destaque === true));
+    mostrarListaEst(); renderEstoque();
+    $('estResumo').textContent = 'Veículo salvo. ' + $('estResumo').textContent;
+  } catch (e) { erro(e.message); }
+  renderFotos();
+});
+$('btExcluirVeic').addEventListener('click', async () => {
+  if (!EDITANDO || !confirm('Excluir este veículo e as fotos dele? Não dá para desfazer. Se ele só foi vendido, prefira mudar a situação para "Vendido".')) return;
+  const bt = $('btExcluirVeic'); bt.disabled = true;
+  try { await chamarEstoque({ acao: 'excluir', id: EDITANDO }); ESTOQUE = ESTOQUE.filter(v => String(v.id) !== String(EDITANDO)); mostrarListaEst(); renderEstoque(); }
+  catch (e) { $('estFormErro').hidden = false; $('estFormErro').textContent = e.message; }
+  bt.disabled = false;
 });
 </script>
 </body>
