@@ -923,9 +923,10 @@ const ST_NOME = { disponivel: 'Disponível', reservado: 'Reservado', pausado: 'P
 let ESTOQUE = [], ESTOQUE_OK = false, EDITANDO = null, FOTOS = [], SUJO = false;
 
 async function chamarEstoque(corpo) {
-  const r = await fetch(ESTOQUE_API, { method: 'POST', body: new URLSearchParams({ dados: JSON.stringify({ token: TOKEN, ...corpo }) }) });
+  const ident = MODO === 'login' ? { token: TOKEN } : { chave: CHAVE, pin: PIN };
+  const r = await fetch(ESTOQUE_API, { method: 'POST', body: new URLSearchParams({ dados: JSON.stringify({ ...ident, ...corpo }) }) });
   let j = {}; try { j = await r.json(); } catch (e) {}
-  if (j.sessao === false) { guardar.limpar(); TOKEN = ''; mostrarLogin('Sua sessão expirou. Entre de novo.'); throw new Error(j.erro || 'Sessão expirada.'); }
+  if (MODO === 'login' && j.sessao === false) { guardar.limpar(); TOKEN = ''; mostrarLogin('Sua sessão expirou. Entre de novo.'); throw new Error(j.erro || 'Sessão expirada.'); }
   if (!r.ok || j.ok === false) throw new Error(j.erro || ('Não consegui falar com o servidor (HTTP ' + r.status + ').'));
   return j;
 }
@@ -940,11 +941,6 @@ function trocarVista(v, silencioso) {
   $('vistas').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.vista === v)));
   if (v === 'estoque') {
     mostrarListaEst();
-    if (MODO !== 'login') { $('estItens').innerHTML = ''; $('estResumo').textContent = ''; $('btNovoVeic').disabled = true;
-      erroEst('O estoque só abre com o login de e-mail e senha. Se ainda não tem, peça o seu acesso para a LeadVox.');
-      $('estItens').innerHTML = '<button class="principal" type="button" id="btIrLogin" style="margin-top:10px">Entrar com e-mail e senha</button>';
-      $('btIrLogin').addEventListener('click', () => { PIN = ''; try { sessionStorage.removeItem('pin_' + CHAVE); } catch (e) {} document.body.classList.remove('modo-estoque'); mostrarLogin(''); });
-      return; }
     $('btNovoVeic').disabled = false;
     if (!ESTOQUE_OK) carregarEstoque();
   }
@@ -1057,7 +1053,7 @@ async function adicionarFotos(arquivos) {
     try { item.previa = await reduzir(arq); } catch (e) { $('estFormErro').hidden = false; $('estFormErro').textContent = e.message; continue; }
     FOTOS.push(item); renderFotos();
     try { const j = await chamarEstoque({ acao: 'foto', imagem: item.previa }); item.url = fotoSegura(j.url); if (!item.url) throw new Error('o servidor não devolveu o endereço da foto.'); item.enviando = false; }
-    catch (e) { FOTOS.splice(FOTOS.indexOf(item), 1); $('estFormErro').hidden = false; $('estFormErro').textContent = 'Uma foto não foi enviada: ' + e.message; if (!TOKEN) return; }
+    catch (e) { FOTOS.splice(FOTOS.indexOf(item), 1); $('estFormErro').hidden = false; $('estFormErro').textContent = 'Uma foto não foi enviada: ' + e.message; if (MODO === 'login' && !TOKEN) return; }
     renderFotos();
   }
 }
