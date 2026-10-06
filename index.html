@@ -34,6 +34,8 @@
   .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
   .tres { display: grid; grid-template-columns: 2fr 1fr; gap: 0 12px; }
   @media (max-width: 420px) { .duas, .tres { grid-template-columns: 1fr; } }
+  .tres3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 12px; }
+  @media (max-width: 560px) { .tres3 { grid-template-columns: 1fr; } }
   button { font: 500 15px "DM Sans", sans-serif; border-radius: var(--raio); padding: 10px 16px; cursor: pointer;
     border: 1px solid var(--linha); background: transparent; color: var(--texto); }
   button.principal { background: var(--verde); border-color: var(--verde); color: var(--navy); font-weight: 700; }
@@ -242,19 +244,14 @@
     <section class="passo" data-passo="Equipe">
       <div class="card">
         <h2>Departamentos</h2>
-        <p class="muted">O primeiro é o principal, para onde vão os clientes que querem comprar. Crie os outros setores que a loja tiver (documentação, pós-venda, consignação…) e diga o que vai para cada um: a IA usa isso para escolher o setor certo.</p>
+        <p class="muted">Crie um departamento para cada fila da loja. Os de <b>Venda</b> recebem quem quer comprar: diga se atendem carro, moto ou os dois. Se houver mais de um para o mesmo tipo (ex.: duas lojas de moto), a IA alterna um cliente para cada. Os de <b>Outro assunto</b> recebem documentação, pós-venda etc.: diga o que vai para cada um.</p>
         <div id="listaDeps"></div>
         <button class="leve" id="addDep">Adicionar departamento</button>
         <div class="dica" id="dicaTicket" hidden></div>
       </div>
       <div class="card">
-        <h2>Distribuição dos clientes</h2>
-        <div class="opcoes">
-          <label class="opcao"><input type="radio" name="dist" value="departamento"><span>Para o departamento<small>O cliente cai na fila e quem estiver livre assume.</small></span></label>
-          <label class="opcao"><input type="radio" name="dist" value="rodizio"><span>Rodízio entre atendentes<small>Um cliente para cada atendente do setor, em sequência. Setor sem atendente cai na fila.</small></span></label>
-        </div>
-        <h2 style="margin-top:20px">Atendentes</h2>
-        <p class="muted">Até 20. No rodízio, cada cliente vai para o próximo atendente do setor escolhido. Também são usados quando o cliente diz que já fala com alguém.</p>
+        <h2>Atendentes</h2>
+        <p class="muted">Até 20. Nos departamentos em <b>rodízio</b>, cada cliente vai para o próximo atendente daquele setor, na ordem desta lista. Também são usados quando o cliente diz que já fala com alguém.</p>
         <div id="listaVend"></div>
         <button class="leve" id="addVend">Adicionar atendente</button>
         <button class="leve" id="importVend" style="margin-left:16px" hidden>Trazer os usuários da LeadVox</button>
@@ -553,7 +550,7 @@ function abrirApp() {
   marcar('preco', c.regras.informaPreco ? 'sim' : 'nao'); marcar('modo', c.regras.atendimentoNoHorarioDaEquipe);
   $('jaAtendido').checked = c.regras.perguntaSeJaEAtendido !== false;
   document.querySelectorAll('#coleta input').forEach(i => i.checked = (c.regras.coletaFinanciamento || []).includes(i.value));
-  renderDeps(c.departamentos); renderVend(c.distribuicao.vendedores); marcar('dist', c.distribuicao.modo);
+  renderDeps(c.departamentos); renderVend(c.distribuicao.vendedores);
   $('enviarAC').checked = !!c.lead.enviarAutoCerto; $('gerente').value = c.lead.whatsappGerente || '';
   $('blocoEnvioAC').hidden = FONTE !== 'autocerto';
   $('fu1').value = String(c.followup.primeiroMin); $('fu2').value = String(c.followup.segundoMin);
@@ -578,12 +575,21 @@ function renderDeps(lista) {
     <div class="linha-lista" data-dep>
       ${i > 0 ? '<button class="tirar" type="button" data-tirar aria-label="Remover departamento">×</button>' : ''}
       <div class="tres">
-        <div><label>${i === 0 ? 'Setor principal' : 'Setor'}</label><input data-f="nome" maxlength="40" value="${esc(d.nome || '')}" placeholder="${i === 0 ? 'Comercial' : 'Ex.: Documentação'}"></div>
+        <div><label>Nome do departamento</label><input data-f="nome" maxlength="40" value="${esc(d.nome || '')}" placeholder="${i === 0 ? 'Ex.: Venda Carro' : 'Ex.: Venda Moto ou Documentação'}"></div>
         <div><label>ID da fila</label><input data-f="queueId" inputmode="numeric" value="${esc(d.queueId || '')}"></div>
       </div>
-      <label>O que vai para ele</label><input data-f="finalidade" maxlength="160" value="${esc(d.finalidade || '')}" placeholder="${i === 0 ? 'Compra, troca, financiamento, visita' : 'Ex.: transferência, recibo, IPVA, multa'}">
+      <div class="tres3">
+        <div><label>Tipo</label><select data-f="tipo"><option value="venda" ${tipoDe(d, i) === 'venda' ? 'selected' : ''}>Venda</option><option value="outro" ${tipoDe(d, i) === 'outro' ? 'selected' : ''}>Outro assunto</option></select></div>
+        <div data-bloco-atende ${tipoDe(d, i) === 'outro' ? 'hidden' : ''}><label>Atende</label><select data-f="atende"><option value="ambos" ${!d.atende || d.atende === 'ambos' ? 'selected' : ''}>Carro e moto</option><option value="carro" ${d.atende === 'carro' ? 'selected' : ''}>Carro</option><option value="moto" ${d.atende === 'moto' ? 'selected' : ''}>Moto</option></select></div>
+        <div><label>Distribuição</label><select data-f="distribuicao"><option value="fila" ${distDe(d) === 'fila' ? 'selected' : ''}>Fila (quem estiver livre)</option><option value="rodizio" ${distDe(d) === 'rodizio' ? 'selected' : ''}>Rodízio de atendentes</option></select></div>
+      </div>
+      <label>O que vai para ele</label><input data-f="finalidade" maxlength="160" value="${esc(d.finalidade || '')}" placeholder="${tipoDe(d, i) === 'venda' ? 'Compra, troca, financiamento, visita' : 'Ex.: transferência, recibo, IPVA, multa'}">
     </div>`).join('');
 }
+function tipoDe(d, i) { return d.tipo === 'venda' || d.tipo === 'outro' ? d.tipo : (i === 0 ? 'venda' : 'outro'); }
+function distDe(d) { return d.distribuicao === 'rodizio' || d.distribuicao === 'fila' ? d.distribuicao : ((CFG && CFG.distribuicao && CFG.distribuicao.modo === 'rodizio') ? 'rodizio' : 'fila'); }
+const CAMPOS_DEP = ['nome', 'queueId', 'finalidade', 'tipo', 'atende', 'distribuicao'];
+document.addEventListener('change', (ev) => { if (ev.target.matches('[data-dep] [data-f="tipo"]')) { const b = ev.target.closest('[data-dep]').querySelector('[data-bloco-atende]'); if (b) b.hidden = ev.target.value === 'outro'; } });
 function nomesDeps() { return lerLista('[data-dep]', ['nome']).map(d => d.nome).filter(Boolean); }
 function renderVend(lista) {
   const deps = nomesDeps(); const d0 = deps[0] || 'Comercial';
@@ -625,7 +631,7 @@ function atualizarResp() {
   $('respConsig').value = opcoes.includes(atual) ? atual : '';
   $('dicaResp').textContent = vs.length ? 'Escolha um setor (a fila dele, com rodízio se estiver ligado) ou uma pessoa.' : 'Para escolher uma pessoa, cadastre o atendente com nome e ID acima. Setores já aparecem na lista.';
 }
-$('addDep').addEventListener('click', () => { const l = lerLista('[data-dep]', ['nome', 'queueId', 'finalidade']); if (l.length >= 15) return; l.push({}); renderDeps(l); renderVend(lerVend()); });
+$('addDep').addEventListener('click', () => { const l = lerLista('[data-dep]', CAMPOS_DEP); if (l.length >= 15) return; l.push({ tipo: 'venda' }); renderDeps(l); renderVend(lerVend()); });
 document.addEventListener('change', (ev) => { if (ev.target.closest('[data-dep]') && ev.target.dataset.f === 'nome') { renderVend(lerVend()); atualizarResp(); } });
 $('addVend').addEventListener('click', () => { const l = lerVend(); if (l.length >= 20) return; l.push({}); renderVend(l); });
 $('importVend').addEventListener('click', () => {
@@ -681,8 +687,8 @@ function coletar() {
     horario,
     regras: { informaPreco: valor('preco') === 'sim', atendimentoNoHorarioDaEquipe: valor('modo') || 'completo',
       perguntaSeJaEAtendido: $('jaAtendido').checked, coletaFinanciamento: [...document.querySelectorAll('#coleta input:checked')].map(i => i.value) },
-    departamentos: lerLista('[data-dep]', ['nome', 'queueId', 'finalidade']).filter(d => d.nome || d.queueId),
-    distribuicao: { modo: valor('dist') || 'departamento', vendedores: lerVend(),
+    departamentos: lerLista('[data-dep]', CAMPOS_DEP).filter(d => d.nome || d.queueId),
+    distribuicao: { modo: lerLista('[data-dep]', CAMPOS_DEP).some(d => d.distribuicao === 'rodizio') ? 'rodizio' : 'departamento', vendedores: lerVend(),
       responsavelVendaConsignacao: /^\d+$/.test($('respConsig').value) ? $('respConsig').value : null,
       setorVendaConsignacao: $('respConsig').value.startsWith('setor:') ? $('respConsig').value.slice(6) : null },
     lead: { enviarAutoCerto: FONTE === 'autocerto' && $('enviarAC').checked, codigoMidia: CFG.lead.codigoMidia || 12, interesse: CFG.lead.interesse || 2,
@@ -745,7 +751,8 @@ $('btProximo').addEventListener('click', () => irPara(passoAtual + 1));
 function montarResumo() {
   const c = coletar();
   const dias = DIAS.filter(([d]) => c.horario[d]).map(([d, n]) => n.slice(0, 3) + ' ' + c.horario[d].join('–')).join(', ') || 'nenhum dia marcado';
-  const deps = c.departamentos.map(d => d.nome + (d.queueId ? ' (fila ' + d.queueId + ')' : ' (sem ID da fila)')).join(', ') || 'nenhum';
+  const ROT = { carro: 'carro', moto: 'moto', ambos: 'carro e moto' };
+  const deps = c.departamentos.map(d => d.nome + (d.queueId ? ' (fila ' + d.queueId + ')' : ' (sem ID da fila)') + ' — ' + (d.tipo === 'outro' ? 'outro assunto' : 'venda de ' + ROT[d.atende || 'ambos']) + ', ' + (d.distribuicao === 'rodizio' ? 'rodízio' : 'fila')).join('; ') || 'nenhum';
   const tQ = { apos_primeiro: 'se não responder a 1ª mensagem', apos_segundo: 'se não responder a 2ª mensagem', apos_terceiro: 'depois de 24 horas',
     personalizado: 'depois de ' + fmt(c.followup.transferir.personalizadoMin || 0) }[c.followup.transferir.quando];
   const linhas = [
@@ -754,7 +761,7 @@ function montarResumo() {
     ['Horário da equipe', dias],
     ['Preço', c.regras.informaPreco ? 'A IA pode informar' : 'Só o consultor informa'],
     ['Departamentos', deps],
-    ['Distribuição', c.distribuicao.modo === 'rodizio' ? 'Rodízio entre ' + c.distribuicao.vendedores.length + ' atendentes, por setor' : 'Para a fila do setor'],
+    ['Atendentes', c.distribuicao.vendedores.length + ' cadastrado(s)'],
     ['Lead', c.lead.enviarAutoCerto ? 'Vai para o AutoCerto e avisa o gerente' : 'Transferido para o Comercial'],
     ['Funil (CRM)', c.crm.ativo ? 'Lança a oportunidade na etapa ' + ((LV.etapas.find(e => String(e.id) === String(c.crm.etapaInicialId)) || {}).nome || (c.crm.etapaInicialId ? 'ID ' + c.crm.etapaInicialId : 'inicial do funil')) : 'Não lança no funil'],
     ['Follow-up', fmt(c.followup.primeiroMin) + ' e ' + fmt(c.followup.segundoMin) + ', transfere ' + tQ]
