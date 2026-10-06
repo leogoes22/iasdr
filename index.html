@@ -941,7 +941,10 @@ function trocarVista(v, silencioso) {
   if (v === 'estoque') {
     mostrarListaEst();
     if (MODO !== 'login') { $('estItens').innerHTML = ''; $('estResumo').textContent = ''; $('btNovoVeic').disabled = true;
-      erroEst('O estoque só abre com o login de e-mail e senha. Se ainda não tem, peça o seu acesso para a LeadVox.'); return; }
+      erroEst('O estoque só abre com o login de e-mail e senha. Se ainda não tem, peça o seu acesso para a LeadVox.');
+      $('estItens').innerHTML = '<button class="principal" type="button" id="btIrLogin" style="margin-top:10px">Entrar com e-mail e senha</button>';
+      $('btIrLogin').addEventListener('click', () => { PIN = ''; try { sessionStorage.removeItem('pin_' + CHAVE); } catch (e) {} document.body.classList.remove('modo-estoque'); mostrarLogin(''); });
+      return; }
     $('btNovoVeic').disabled = false;
     if (!ESTOQUE_OK) carregarEstoque();
   }
