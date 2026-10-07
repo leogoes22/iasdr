@@ -172,6 +172,11 @@
   .ultima b { color: var(--texto); font-weight: 500; }
   .conflito { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
   .conflito button { flex: 1 1 160px; }
+  /* perguntas frequentes */
+  .faq-item { border: 1px solid var(--linha); border-radius: var(--raio); padding: 4px 12px 12px; margin-top: 10px; background: var(--navy); }
+  .faq-item .faq-topo { display: flex; justify-content: space-between; align-items: center; }
+  .faq-item textarea { min-height: 60px; }
+  #faqSugestoes button { font-size: 13px; padding: 6px 12px; border-radius: 99px; }
 </style>
 </head>
 <body>
@@ -295,6 +300,22 @@
           <label class="opcao"><input type="radio" name="tom" value="descontraido"><span>Descontraído<small>Leve, com a linguagem do dia a dia.</small></span></label>
           <label class="opcao"><input type="radio" name="tom" value="formal"><span>Mais formal<small>Educado e direto, sem gírias.</small></span></label>
         </div>
+        <label>Tamanho das mensagens</label>
+        <div class="chips" id="iaTamanho">
+          <label><input type="radio" name="tamanho" value="curta"> Curtas, estilo WhatsApp</label>
+          <label><input type="radio" name="tamanho" value="media"> Um pouco mais explicativas</label>
+        </div>
+        <label>Emojis</label>
+        <div class="chips" id="iaEmojis">
+          <label><input type="radio" name="emojis" value="nenhum"> Nenhum</label>
+          <label><input type="radio" name="emojis" value="poucos"> Poucos</label>
+          <label><input type="radio" name="emojis" value="mais"> À vontade</label>
+        </div>
+        <label>Como a IA chama o cliente</label>
+        <div class="chips" id="iaTrat">
+          <label><input type="radio" name="tratamento" value="voce"> Você</label>
+          <label><input type="radio" name="tratamento" value="senhor"> Senhor / senhora</label>
+        </div>
         <label for="iaDif">Diferenciais da loja <small>(um por linha, até 6)</small></label>
         <textarea id="iaDif" placeholder="Financiamento facilitado&#10;Avaliamos sua moto na troca"></textarea>
         <div class="conversa" aria-label="Prévia da apresentação">
@@ -345,10 +366,26 @@
     <section class="passo" data-passo="Regras">
       <div class="card">
         <h2>Regras de atendimento</h2>
-        <label>A IA pode informar o preço?</label>
+        <label>Quando a IA fala o preço?</label>
         <div class="opcoes">
-          <label class="opcao"><input type="radio" name="preco" value="nao"><span>Não, quem passa valor é o consultor<small>Ela nunca fala preço, nem aproximado.</small></span></label>
-          <label class="opcao"><input type="radio" name="preco" value="sim"><span>Sim, pode informar<small>Ela só repete o preço que está no estoque.</small></span></label>
+          <label class="opcao"><input type="radio" name="precoModo" value="nunca"><span>Nunca, quem passa valor é o consultor<small>Ela nunca fala preço, nem aproximado.</small></span></label>
+          <label class="opcao"><input type="radio" name="precoModo" value="quando_perguntar"><span>Só se o cliente perguntar<small>Ela apresenta o veículo e só dá o valor quando pedirem.</small></span></label>
+          <label class="opcao"><input type="radio" name="precoModo" value="com_foto"><span>Junto com a foto<small>O preço vai na legenda da foto, com a ficha do veículo.</small></span></label>
+          <label class="opcao"><input type="radio" name="precoModo" value="primeira_mencao"><span>Já na primeira vez que mostra o veículo<small>Ela fala o valor ao apresentar, e ele vai também na legenda da foto.</small></span></label>
+        </div>
+        <div id="blocoPrecoOpc">
+          <label>Como o valor aparece</label>
+          <div class="chips">
+            <label><input type="radio" name="precoFormato" value="exato"> Valor exato (R$ 72.900)</label>
+            <label><input type="radio" name="precoFormato" value="a_partir"> "A partir de R$ 72.900"</label>
+          </div>
+          <label>Depois de falar o valor, a IA</label>
+          <div class="chips">
+            <label><input type="radio" name="precoDepois" value="pagamento"> Pergunta a forma de pagamento</label>
+            <label><input type="radio" name="precoDepois" value="visita"> Convida para vir ver de perto</label>
+          </div>
+          <label for="respDesc">Quando pedirem desconto, a IA responde <small>(opcional)</small></label>
+          <input id="respDesc" maxlength="160" placeholder="Ex.: Condição especial à vista quem passa é o nosso consultor">
         </div>
         <label>No horário da equipe, a IA</label>
         <div class="opcoes">
@@ -356,13 +393,43 @@
           <label class="opcao"><input type="radio" name="modo" value="abertura_curta"><span>Só recebe e passa rápido<small>Pega o nome, confirma o interesse e já transfere.</small></span></label>
         </div>
         <label class="opcao" style="margin-top:14px"><input type="checkbox" id="jaAtendido"><span>Perguntar se o cliente já fala com alguém da equipe<small>Se sim, ela passa direto para esse vendedor.</small></span></label>
-        <label>No financiamento, a IA coleta</label>
-        <div class="chips" id="coleta">
-          <label><input type="checkbox" value="entrada"> Entrada</label>
-          <label><input type="checkbox" value="troca"> Veículo na troca</label>
-          <label><input type="checkbox" value="cpf"> CPF</label>
-          <label><input type="checkbox" value="nascimento"> Data de nascimento</label>
-          <label><input type="checkbox" value="cnh"> CNH</label>
+      </div>
+    </section>
+
+    <!-- 5 Pagamento e troca -->
+    <section class="passo" data-passo="Pagamento">
+      <div class="card">
+        <h2>Pagamento e troca</h2>
+        <p class="muted">A IA usa isso para responder dúvidas de pagamento e para saber o que perguntar ao cliente.</p>
+        <label>A loja trabalha com financiamento?</label>
+        <div class="chips">
+          <label><input type="radio" name="financia" value="sim"> Sim</label>
+          <label><input type="radio" name="financia" value="nao"> Não</label>
+        </div>
+        <div id="blocoFinancia">
+          <label for="bancos">Bancos e financeiras parceiros <small>(separe por vírgula, opcional)</small></label>
+          <input id="bancos" maxlength="240" placeholder="Ex.: BV, Santander, Itaú">
+          <label for="entradaMin">O que dizer sobre entrada <small>(opcional)</small></label>
+          <input id="entradaMin" maxlength="80" placeholder="Ex.: a partir de 20% ou sem entrada para alguns perfis">
+          <p class="dica">A IA só fala dos bancos e da entrada se o cliente perguntar, com essas palavras.</p>
+          <label>No financiamento, a IA coleta</label>
+          <div class="chips" id="coleta">
+            <label><input type="checkbox" value="entrada"> Entrada</label>
+            <label data-troca><input type="checkbox" value="troca"> Veículo na troca</label>
+            <label><input type="checkbox" value="cpf"> CPF</label>
+            <label><input type="checkbox" value="nascimento"> Data de nascimento</label>
+            <label><input type="checkbox" value="cnh"> CNH</label>
+          </div>
+        </div>
+        <label>A loja também aceita</label>
+        <div class="chips">
+          <label><input type="checkbox" id="pgCartao"> Cartão de crédito</label>
+          <label><input type="checkbox" id="pgConsorcio"> Consórcio</label>
+        </div>
+        <label>A loja aceita veículo na troca?</label>
+        <div class="chips">
+          <label><input type="radio" name="troca" value="sim"> Sim</label>
+          <label><input type="radio" name="troca" value="nao"> Não</label>
         </div>
       </div>
     </section>
@@ -443,6 +510,18 @@
       </div>
     </section>
 
+    <!-- Perguntas frequentes -->
+    <section class="passo" data-passo="Perguntas">
+      <div class="card">
+        <h2>Perguntas frequentes</h2>
+        <p class="muted">Cadastre as dúvidas que seus clientes sempre fazem. A IA responde com a resposta da loja, sem precisar chamar o vendedor. Até 15.</p>
+        <p style="font-size:13px;margin:14px 0 6px">Começar por uma destas:</p>
+        <div class="chips" id="faqSugestoes"></div>
+        <div id="faqLista" style="margin-top:12px"></div>
+        <button type="button" id="btAddFaq" style="margin-top:10px">+ Adicionar pergunta</button>
+      </div>
+    </section>
+
     <!-- 8 Revisar -->
     <section class="passo" data-passo="Revisar">
       <div class="card">
@@ -511,11 +590,14 @@ function renderLiga() {
 
 const DIAS = [['seg', 'Segunda'], ['ter', 'Terça'], ['qua', 'Quarta'], ['qui', 'Quinta'], ['sex', 'Sexta'], ['sab', 'Sábado'], ['dom', 'Domingo']];
 const PADRAO = {
-  ia: { nome: '', genero: 'feminino', tom: 'acolhedor', diferenciais: [] },
+  ia: { nome: '', genero: 'feminino', tom: 'acolhedor', diferenciais: [], tamanho: 'curta', emojis: 'poucos', tratamento: 'voce' },
   loja: { nome: '', tipo: null, endereco: '', bairro: '', cidade: '', uf: '', mapa: '', site: '', instagram: '', telefone: '' },
   horario: { seg: ['09:00', '18:00'], ter: ['09:00', '18:00'], qua: ['09:00', '18:00'], qui: ['09:00', '18:00'], sex: ['09:00', '18:00'], sab: ['09:00', '13:00'], dom: null,
     feriados: ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '11-20', '12-25'] },
-  regras: { informaPreco: false, atendimentoNoHorarioDaEquipe: 'completo', perguntaSeJaEAtendido: true, coletaFinanciamento: ['entrada', 'troca', 'cpf', 'nascimento', 'cnh'] },
+  regras: { informaPreco: false, atendimentoNoHorarioDaEquipe: 'completo', perguntaSeJaEAtendido: true, coletaFinanciamento: ['entrada', 'troca', 'cpf', 'nascimento', 'cnh'],
+    precoFormato: 'exato', precoDepois: 'pagamento', respostaDesconto: '' },   // precoModo fica de fora: config antiga deduz pelo informaPreco
+  vendas: { financia: true, cartao: false, consorcio: false, bancos: [], entradaMinima: '', troca: 'sim' },
+  faq: [],
   departamentos: [{ nome: 'Comercial', queueId: '', finalidade: 'compra, troca, financiamento, visita' }],
   distribuicao: { modo: 'departamento', vendedores: [], responsavelVendaConsignacao: null },
   lead: { enviarAutoCerto: false, codigoMidia: 12, interesse: 2, whatsappGerente: '' },
@@ -736,7 +818,15 @@ function abrirApp() {
       <input type="time" data-ini="${d}" value="${h ? h[0] : '09:00'}" ${h ? '' : 'disabled'} aria-label="${n}, abre">
       <input type="time" data-fim="${d}" value="${h ? h[1] : '18:00'}" ${h ? '' : 'disabled'} aria-label="${n}, fecha"></div>`; }).join('');
   $('feriados').value = (c.horario.feriados || []).join(', ');
-  marcar('preco', c.regras.informaPreco ? 'sim' : 'nao'); marcar('modo', c.regras.atendimentoNoHorarioDaEquipe);
+  marcar('precoModo', c.regras.precoModo || (c.regras.informaPreco ? 'quando_perguntar' : 'nunca'));
+  marcar('precoFormato', c.regras.precoFormato || 'exato'); marcar('precoDepois', c.regras.precoDepois || 'pagamento');
+  $('respDesc').value = c.regras.respostaDesconto || '';
+  marcar('tamanho', c.ia.tamanho || 'curta'); marcar('emojis', c.ia.emojis || 'poucos'); marcar('tratamento', c.ia.tratamento || 'voce');
+  marcar('financia', c.vendas.financia === false ? 'nao' : 'sim'); marcar('troca', c.vendas.troca === 'nao' ? 'nao' : 'sim');
+  $('bancos').value = (c.vendas.bancos || []).join(', '); $('entradaMin').value = c.vendas.entradaMinima || '';
+  $('pgCartao').checked = !!c.vendas.cartao; $('pgConsorcio').checked = !!c.vendas.consorcio;
+  renderFaq(c.faq || []);
+  marcar('modo', c.regras.atendimentoNoHorarioDaEquipe);
   $('jaAtendido').checked = c.regras.perguntaSeJaEAtendido !== false;
   document.querySelectorAll('#coleta input').forEach(i => i.checked = (c.regras.coletaFinanciamento || []).includes(i.value));
   renderDeps(c.departamentos); renderVend(c.distribuicao.vendedores);
@@ -887,6 +977,43 @@ document.addEventListener('change', (ev) => {
 document.addEventListener('input', (ev) => { if (!$('telaApp').hidden) atualizar(); if (ev.target.closest('[data-vend]') || ev.target.closest('[data-dep]')) atualizarResp(); });
 
 // ── ler tudo da tela ──
+// ── perguntas frequentes ──
+const FAQ_SUGESTOES = ['Aceita cartão?', 'Faz entrega?', 'Tem garantia?', 'A documentação está inclusa?', 'Financia para quem tem nome sujo?',
+  'Aceita moto na troca?', 'Tem estacionamento?', 'Abre no domingo?'];
+function linhaFaq(x) {
+  return `<div class="faq-item" data-faq>
+    <div class="faq-topo"><label style="margin-top:10px">Pergunta</label><button type="button" class="leve" data-rmfaq style="color:var(--erro)">Remover</button></div>
+    <input data-faq-p maxlength="120" value="${esc(x.p || '')}" placeholder="Ex.: Faz entrega?">
+    <label>Resposta da loja</label>
+    <textarea data-faq-r maxlength="400" placeholder="Ex.: Entregamos em todo o RJ, com custo combinado com o consultor.">${esc(x.r || '')}</textarea>
+  </div>`;
+}
+function renderFaq(lista) {
+  $('faqLista').innerHTML = (lista || []).slice(0, 15).map(linhaFaq).join('');
+  renderSugestoesFaq();
+}
+function renderSugestoesFaq() {
+  const ja = new Set([...document.querySelectorAll('[data-faq-p]')].map(i => i.value.trim().toLowerCase()));
+  $('faqSugestoes').innerHTML = FAQ_SUGESTOES.filter(s => !ja.has(s.toLowerCase()))
+    .map(s => `<button type="button" data-sugfaq="${esc(s)}">${esc(s)}</button>`).join('');
+}
+function lerFaq() {
+  return [...document.querySelectorAll('[data-faq]')].map(d => ({ p: d.querySelector('[data-faq-p]').value.trim(), r: d.querySelector('[data-faq-r]').value.trim() }))
+    .filter(x => x.p && x.r).slice(0, 15);
+}
+function addFaq(p) {
+  if (document.querySelectorAll('[data-faq]').length >= 15) return;
+  $('faqLista').insertAdjacentHTML('beforeend', linhaFaq({ p: p || '' }));
+  const ult = [...document.querySelectorAll('[data-faq]')].pop();
+  (p ? ult.querySelector('[data-faq-r]') : ult.querySelector('[data-faq-p]')).focus();
+  renderSugestoesFaq(); atualizar();
+}
+$('btAddFaq').addEventListener('click', () => addFaq(''));
+document.addEventListener('click', (ev) => {
+  const s = ev.target.closest('[data-sugfaq]'); if (s) { addFaq(s.dataset.sugfaq); return; }
+  const r = ev.target.closest('[data-rmfaq]'); if (r) { r.closest('[data-faq]').remove(); renderSugestoesFaq(); atualizar(); }
+});
+
 function coletar() {
   const horario = {};
   DIAS.forEach(([d]) => { const on = document.querySelector(`[data-dia="${d}"]`).checked;
@@ -895,13 +1022,21 @@ function coletar() {
   const quando = $('transf').value;
   return {
     ia: { nome: $('iaNome').value.trim(), genero: $('iaGenero').value, tom: valor('tom') || 'acolhedor',
-      diferenciais: $('iaDif').value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 6) },
+      diferenciais: $('iaDif').value.split('\n').map(s => s.trim()).filter(Boolean).slice(0, 6),
+      tamanho: valor('tamanho') || 'curta', emojis: valor('emojis') || 'poucos', tratamento: valor('tratamento') || 'voce' },
     loja: { nome: $('ljNome').value.trim(), tipo: valor('tipo'), endereco: $('ljEnd').value.trim(), bairro: $('ljBairro').value.trim(),
       cidade: $('ljCidade').value.trim(), uf: $('ljUf').value.trim(), mapa: $('ljMapa').value.trim(), site: $('ljSite').value.trim(),
       instagram: $('ljInsta').value.trim(), telefone: $('ljTel').value.trim() },
     horario,
-    regras: { informaPreco: valor('preco') === 'sim', atendimentoNoHorarioDaEquipe: valor('modo') || 'completo',
-      perguntaSeJaEAtendido: $('jaAtendido').checked, coletaFinanciamento: [...document.querySelectorAll('#coleta input:checked')].map(i => i.value) },
+    regras: { informaPreco: (valor('precoModo') || 'nunca') !== 'nunca', precoModo: valor('precoModo') || 'nunca',
+      precoFormato: valor('precoFormato') || 'exato', precoDepois: valor('precoDepois') || 'pagamento', respostaDesconto: $('respDesc').value.trim(),
+      atendimentoNoHorarioDaEquipe: valor('modo') || 'completo',
+      perguntaSeJaEAtendido: $('jaAtendido').checked, coletaFinanciamento: [...document.querySelectorAll('#coleta input:checked')].map(i => i.value)
+        .filter(v => v !== 'troca' || valor('troca') !== 'nao') },
+    vendas: { financia: valor('financia') !== 'nao', cartao: $('pgCartao').checked, consorcio: $('pgConsorcio').checked,
+      bancos: $('bancos').value.split(',').map(s => s.trim()).filter(Boolean).slice(0, 6), entradaMinima: $('entradaMin').value.trim(),
+      troca: valor('troca') === 'nao' ? 'nao' : 'sim' },
+    faq: lerFaq(),
     departamentos: lerLista('[data-dep]', CAMPOS_DEP).filter(d => d.nome || d.queueId),
     distribuicao: { modo: lerLista('[data-dep]', CAMPOS_DEP).some(d => d.distribuicao === 'rodizio') ? 'rodizio' : 'departamento', vendedores: lerVend(),
       responsavelVendaConsignacao: /^\d+$/.test($('respConsig').value) ? $('respConsig').value : null,
@@ -924,6 +1059,10 @@ function atualizar() {
   const art = c.ia.genero === 'masculino' ? 'seu assistente virtual' : 'sua assistente virtual';
   $('previa').innerHTML = `${abre} Me chamo <b>${esc(nome)}</b>, ${art} aqui da <b>${esc(loja)}</b>. Como posso te chamar?<span class="hora">14:32</span>`;
 
+  $('blocoPrecoOpc').hidden = c.regras.precoModo === 'nunca';
+  $('blocoFinancia').hidden = !c.vendas.financia;
+  const lt = document.querySelector('#coleta [data-troca]'); if (lt) lt.hidden = c.vendas.troca === 'nao';
+  $('btAddFaq').disabled = document.querySelectorAll('[data-faq]').length >= 15;
   $('blocoGerente').hidden = !$('enviarAC').checked;
   $('blocoCrm').hidden = !$('crmAtivo').checked;
   $('textoDestino').textContent = (FONTE === 'autocerto' && c.lead.enviarAutoCerto)
@@ -974,7 +1113,12 @@ function montarResumo() {
     ['IA', (c.ia.nome || 'sem nome') + ', tom ' + { acolhedor: 'acolhedor', descontraido: 'descontraído', formal: 'formal' }[c.ia.tom]],
     ['Loja', (c.loja.nome || 'sem nome') + (c.loja.tipo ? ', vende ' + { moto: 'motos', carro: 'carros', ambos: 'motos e carros' }[c.loja.tipo] : ', tipo não escolhido')],
     ['Horário da equipe', dias],
-    ['Preço', c.regras.informaPreco ? 'A IA pode informar' : 'Só o consultor informa'],
+    ['Preço', { nunca: 'Só o consultor informa', quando_perguntar: 'A IA informa quando o cliente perguntar', com_foto: 'Vai na legenda da foto',
+      primeira_mencao: 'A IA fala ao apresentar o veículo' }[c.regras.precoModo] + (c.regras.precoModo !== 'nunca' && c.regras.precoFormato === 'a_partir' ? ', como "a partir de"' : '')],
+    ['Jeito de escrever', ({ curta: 'Mensagens curtas', media: 'Mensagens mais explicativas' }[c.ia.tamanho]) + ', ' + ({ nenhum: 'sem emoji', poucos: 'poucos emojis', mais: 'emojis à vontade' }[c.ia.emojis]) + ', chama de ' + (c.ia.tratamento === 'senhor' ? 'senhor/senhora' : 'você')],
+    ['Pagamento', (c.vendas.financia ? 'Financia' + (c.vendas.bancos.length ? ' (' + c.vendas.bancos.join(', ') + ')' : '') : 'Não financia') +
+      (c.vendas.cartao ? ', cartão' : '') + (c.vendas.consorcio ? ', consórcio' : '') + (c.vendas.troca === 'nao' ? ', sem troca' : ', aceita troca')],
+    ['Perguntas frequentes', c.faq.length ? c.faq.length + ' cadastrada(s)' : 'nenhuma'],
     ['Departamentos', deps],
     ['Atendentes', c.distribuicao.vendedores.length + ' cadastrado(s)'],
     ['Lead', c.lead.enviarAutoCerto ? 'Vai para o AutoCerto e avisa o gerente' : 'Transferido para o Comercial'],
