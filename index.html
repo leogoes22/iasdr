@@ -163,6 +163,15 @@
   button.perigo { color: var(--erro); border-color: rgba(255,107,107,.4); }
   .check-lin { display: flex; gap: 8px; align-items: center; font-weight: 400; }
   .check-lin input { width: auto; }
+  /* modo suporte LeadVox */
+  .faixa-sup { display: flex; gap: 12px; align-items: flex-start; border: 1px dashed var(--verde); background: var(--verde-fundo);
+    border-radius: 14px; padding: 12px 14px; margin: 10px 0 12px; font-size: 14px; }
+  .faixa-sup svg { flex: 0 0 auto; width: 22px; height: 22px; stroke: var(--verde); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; margin-top: 1px; }
+  .faixa-sup b { display: block; color: var(--verde); font-family: Syne, sans-serif; font-size: 15px; }
+  .ultima { font-size: 13px; color: var(--suave); margin-top: 4px; }
+  .ultima b { color: var(--texto); font-weight: 500; }
+  .conflito { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .conflito button { flex: 1 1 160px; }
 </style>
 </head>
 <body>
@@ -181,8 +190,10 @@
 <div id="telaApp" hidden>
   <div class="wrap">
     <div class="topo"><h1 id="titulo">Configuração da IA</h1><button class="leve" id="btSair" type="button" hidden>Sair</button></div>
+    <div id="faixaSuporte" class="faixa-sup" role="status" hidden></div>
     <p class="muted" id="subtitulo"></p>
-    <span class="selo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Acesso liberado</span>
+    <p class="ultima" id="ultimaAlt" hidden></p>
+    <span class="selo" id="selo"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Acesso liberado</span>
     <div class="vistas" id="vistas" role="group" aria-label="Escolha o que editar" hidden>
       <button type="button" data-vista="ia" aria-pressed="true">Configurar IA</button>
       <button type="button" data-vista="estoque" aria-pressed="false">Estoque</button>
@@ -438,6 +449,10 @@
         <h2>Revise e salve</h2>
         <dl class="resumo" id="resumo"></dl>
         <p id="erroSalvar" class="erro" hidden></p>
+        <div id="conflitoAcoes" class="conflito" hidden>
+          <button type="button" id="btVerNova">Ver a versão nova</button>
+          <button type="button" id="btPorCima" class="perigo">Salvar por cima</button>
+        </div>
         <button id="btSalvar" class="principal" style="width:100%;margin-top:16px">Salvar configuração</button>
       </div>
       <div id="salvo" class="salvo" hidden></div>
@@ -461,6 +476,20 @@ const API = q.get('api') || API_PADRAO;
 // Com ?k=, aparece também a opção "Entrar com o PIN da loja" (jeito antigo).
 let MODO = 'login';
 let TOKEN = '';
+// Modo suporte: o admin da LeadVox abre o link com #suporte=<código>. O código fica só nesta aba
+// (sessionStorage) e sai da barra de endereço na hora.
+let TOKEN_SUP = '', SUPORTE = null, VERSAO = null, ULTIMA = null;
+(function () {
+  const m = /(?:^|[#&])suporte=([0-9a-f]{64})(?:&|$)/.exec(location.hash || '');
+  try {
+    if (m) {
+      TOKEN_SUP = m[1];
+      if (CHAVE) sessionStorage.setItem('sdr_suporte_' + CHAVE, TOKEN_SUP);
+      history.replaceState(null, '', location.pathname + location.search);
+    } else if (CHAVE) TOKEN_SUP = sessionStorage.getItem('sdr_suporte_' + CHAVE) || '';
+  } catch (e) {}
+  if (TOKEN_SUP) MODO = 'suporte';
+})();
 const guardar = { ler() { try { return localStorage.getItem('sdr_token') || sessionStorage.getItem('sdr_token') || ''; } catch (e) { return ''; } },
   salvar(t, lembrar) { try { (lembrar ? localStorage : sessionStorage).setItem('sdr_token', t); } catch (e) {} },
   limpar() { try { localStorage.removeItem('sdr_token'); sessionStorage.removeItem('sdr_token'); } catch (e) {} } };
@@ -504,12 +533,44 @@ window.addEventListener('message', (ev) => {
 
 async function chamar(corpo) {
   if (!/^https:\/\/webhook\.lv-mktdeconversa\.com\//.test(API) || (MODO === 'pin' && !CHAVE)) throw new Error('Link do plugin incompleto. Peça um link novo para a LeadVox.');
-  const ident = MODO === 'login' ? { token: TOKEN } : { chave: CHAVE, pin: PIN };
+  const ident = MODO === 'login' ? { token: TOKEN } : MODO === 'suporte' ? { token: TOKEN_SUP, tipoSessao: 'suporte' } : { chave: CHAVE, pin: PIN };
   const r = await fetch(API, { method: 'POST', body: new URLSearchParams({ dados: JSON.stringify({ ...ident, ...corpo }) }) });
   let j = {}; try { j = await r.json(); } catch (e) {}
   if (MODO === 'login' && j.sessao === false) { guardar.limpar(); TOKEN = ''; mostrarLogin('Sua sessão expirou. Entre de novo.'); throw new Error(j.erro); }
-  if (!r.ok || j.ok === false) throw new Error(j.erro || ('Não consegui falar com o servidor (HTTP ' + r.status + ').'));
+  if (MODO === 'suporte' && j.sessao === false) { fimSuporte(j.erro); throw new Error(j.erro); }
+  if (!r.ok || j.ok === false) { const er = new Error(j.erro || ('Não consegui falar com o servidor (HTTP ' + r.status + ').')); er.dados = j; throw er; }
   return j;
+}
+function fimSuporte(msg) {
+  try { sessionStorage.removeItem('sdr_suporte_' + CHAVE); } catch (e) {}
+  TOKEN_SUP = '';
+  $('telaApp').hidden = true; $('telaPorta').hidden = false;
+  const card = $('cardPorta'); card.className = 'card';
+  card.innerHTML = '<div class="marca-lv">Lead<b>Vox</b></div><h1>Modo suporte encerrado</h1>' +
+    '<p class="muted" style="margin-top:8px">' + esc(msg || 'O acesso de suporte acabou.') + '</p>' +
+    '<p class="muted" style="margin-top:8px">Para editar de novo, use "Editar IA" no painel de admin.</p>';
+}
+const quandoTxt = (iso) => { const d = new Date(iso); return isNaN(d) ? '' : ' em ' + d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' às'); };
+function renderSuporte() {
+  const f = $('faixaSuporte');
+  $('selo').hidden = MODO === 'suporte';
+  if (MODO !== 'suporte') { f.hidden = true; }
+  else {
+    const ate = SUPORTE && SUPORTE.expiraEm ? new Date(SUPORTE.expiraEm) : null;
+    f.hidden = false;
+    f.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M5.6 5.6l3.6 3.6M14.8 14.8l3.6 3.6M18.4 5.6l-3.6 3.6M9.2 14.8l-3.6 3.6"/></svg>' +
+      '<div><b>Modo suporte LeadVox</b>Você está editando a IA desta loja pelo acesso de suporte. O que salvar aqui entra no histórico como alteração da LeadVox' +
+      (ate && !isNaN(ate) ? ', e o acesso vale até as ' + esc(ate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })) : '') + '.</div>';
+  }
+  const u = $('ultimaAlt');
+  if (!ULTIMA || !ULTIMA.origem) { u.hidden = true; return; }
+  const o = String(ULTIMA.origem);
+  const quem = o === 'plugin' ? (MODO === 'suporte' ? 'pelo dono da loja' : 'por você')
+    : o.startsWith('suporte') ? 'pela equipe LeadVox'
+    : o.startsWith('restaurar') ? 'pela LeadVox, que restaurou a versão ' + (o.split(':')[1] || '') : '';
+  if (!quem) { u.hidden = true; return; }
+  u.hidden = false;
+  u.innerHTML = 'Última alteração <b>' + esc(quem) + '</b>' + esc(ULTIMA.em ? quandoTxt(ULTIMA.em) : '') + '.';
 }
 async function chamarLogin(corpo) {
   const r = await fetch(LOGIN_API, { method: 'POST', body: new URLSearchParams({ dados: JSON.stringify(corpo) }) });
@@ -524,6 +585,7 @@ function aplicarCarregado(j) {
   if (j.config && j.config.estoque && j.config.estoque.fonte === 'leadvox') FONTE = 'leadvox';
   LV = { usuarios: (j.leadvox && Array.isArray(j.leadvox.usuarios)) ? j.leadvox.usuarios : [], etapas: (j.leadvox && Array.isArray(j.leadvox.etapas)) ? j.leadvox.etapas : [], filas: (j.leadvox && Array.isArray(j.leadvox.filas)) ? j.leadvox.filas : [] };
   const cc = j.config || {}; ATIVO = cc.ativo === true; BLOQ = cc.bloqueado === true; CONFIGURADA = cc.configurada === true;
+  VERSAO = Number(j.versao) || null; ULTIMA = j.ultima || null; SUPORTE = j.suporte || null;
   CFG = mesclar(j.config || {});
 }
 if (CHAVE) { try { PIN = sessionStorage.getItem('pin_' + CHAVE) || ''; } catch (e) {} }
@@ -566,7 +628,7 @@ function mesclar(c) {
   if (c.horario) for (const [d] of DIAS) o.horario[d] = c.horario[d] ?? null;
   return o;
 }
-if (CHAVE && PIN && !guardar.ler()) { MODO = 'pin'; entrar(); }
+if (MODO !== 'suporte' && CHAVE && PIN && !guardar.ler()) { MODO = 'pin'; entrar(); }
 
 // ── login com e-mail e senha ──
 const marca = '<div class="marca-lv">Lead<b>Vox</b></div>';
@@ -640,10 +702,15 @@ async function abrirComToken(t, lembrar) {
   aplicarCarregado(j); abrirApp();
 }
 $('btSair').addEventListener('click', async () => {
+  if (MODO === 'suporte') { fimSuporte('Você saiu do modo suporte neste navegador.'); return; }
   try { await chamarLogin({ acao: 'sair', token: TOKEN }); } catch (e) {}
   guardar.limpar(); TOKEN = ''; mostrarLogin('');
 });
-if (MODO === 'login') {
+if (MODO === 'suporte') {
+  $('cardPorta').innerHTML = marca + '<h1>Modo suporte</h1><p class="muted" style="margin-top:10px">Abrindo a configuração da IA da loja…</p>';
+  chamar({ acao: 'carregar' }).then(j => { aplicarCarregado(j); abrirApp(); })
+    .catch(e => { if (TOKEN_SUP) fimSuporte(e.message); });
+} else if (MODO === 'login') {
   TOKEN = guardar.ler();
   if (TOKEN) {
     $('cardPorta').innerHTML = marca + '<h1>Sua IA de atendimento</h1><p class="muted" style="margin-top:10px">Abrindo o painel…</p>';
@@ -654,7 +721,10 @@ if (MODO === 'login') {
 
 // ── montar a tela a partir da configuração ──
 function abrirApp() {
-  $('telaPorta').hidden = true; $('telaApp').hidden = false; $('btSair').hidden = MODO !== 'login';
+  $('telaPorta').hidden = true; $('telaApp').hidden = false; $('btSair').hidden = MODO !== 'login' && MODO !== 'suporte';
+  $('btSair').textContent = MODO === 'suporte' ? 'Sair do modo suporte' : 'Sair';
+  $('conflitoAcoes').hidden = true; $('erroSalvar').hidden = true; $('salvo').hidden = true;
+  renderSuporte();
   $('titulo').textContent = CFG.loja.nome || 'Configuração da IA';
   $('subtitulo').textContent = 'Estoque ' + (FONTE === 'leadvox' ? 'LeadVox' : 'pelo ' + (FONTE === 'revendamais' ? 'Revenda Mais' : 'AutoCerto')) + ', WhatsApp ' + (CANAL === 'waba' ? 'oficial' : 'conectado por QR code') + '.';
   const c = CFG;
@@ -924,16 +994,36 @@ $('btLiga').addEventListener('click', async () => {
 });
 
 $('btSalvar').addEventListener('click', async () => {
-  const bt = $('btSalvar'); bt.disabled = true; bt.textContent = 'Salvando…'; $('erroSalvar').hidden = true; $('salvo').hidden = true;
+  const bt = $('btSalvar'); bt.disabled = true; bt.textContent = 'Salvando…'; $('erroSalvar').hidden = true; $('salvo').hidden = true; $('conflitoAcoes').hidden = true;
   try {
     const cfg = coletar();
-    const j = await chamar({ acao: 'salvar', config: cfg });
+    const j = await chamar({ acao: 'salvar', config: cfg, versaoBase: VERSAO });
     CFG = mesclar({ ...CFG, ...cfg });
     CONFIGURADA = true; renderLiga();
+    VERSAO = Number(j.versao) || VERSAO;
+    ULTIMA = { origem: MODO === 'suporte' ? 'suporte:' + ((SUPORTE && SUPORTE.autor) || 'LeadVox') : 'plugin', em: new Date().toISOString() };
+    renderSuporte();
     $('salvo').hidden = false;
     $('salvo').innerHTML = `<b>Configuração salva.</b> Esta é a versão ${esc(j.versao)}. Você pode voltar aqui e mudar o que quiser quando precisar.${ATIVO || BLOQ ? '' : ' Para a IA começar a responder, ligue a chave lá no topo.'}`;
-  } catch (e) { $('erroSalvar').hidden = false; $('erroSalvar').textContent = e.message; }
+  } catch (e) {
+    $('erroSalvar').hidden = false; $('erroSalvar').textContent = e.message;
+    if (e.dados && e.dados.conflito) { CONFLITO = e.dados; $('conflitoAcoes').hidden = false; }
+  }
   bt.disabled = false; bt.textContent = 'Salvar configuração';
+});
+// ── trava de edição simultânea: outra pessoa salvou depois que esta tela abriu ──
+let CONFLITO = null;
+$('btVerNova').addEventListener('click', async () => {
+  if (!confirm('Carregar a versão nova? O que você mudou nesta tela e ainda não salvou vai se perder.')) return;
+  const bt = $('btVerNova'); bt.disabled = true;
+  try { const j = await chamar({ acao: 'carregar' }); aplicarCarregado(j); abrirApp(); CONFLITO = null; }
+  catch (e) { $('erroSalvar').hidden = false; $('erroSalvar').textContent = e.message; }
+  bt.disabled = false;
+});
+$('btPorCima').addEventListener('click', () => {
+  if (!CONFLITO || !confirm('Salvar a sua versão por cima da alteração feita pela outra pessoa? A versão dela continua no histórico.')) return;
+  VERSAO = Number(CONFLITO.versao) || VERSAO; CONFLITO = null;
+  $('btSalvar').click();
 });
 
 // ═══════════════ ESTOQUE LEADVOX (adicional contratado na LeadVox) ═══════════════
@@ -959,7 +1049,7 @@ async function chamarEstoque(corpo) {
   return j;
 }
 function prepararEstoque() {
-  $('vistas').hidden = FONTE !== 'leadvox';
+  $('vistas').hidden = FONTE !== 'leadvox' || MODO === 'suporte';   // estoque continua só com o acesso do dono
   ESTOQUE_OK = false; SUJO = false;
   trocarVista('ia', true);
 }
