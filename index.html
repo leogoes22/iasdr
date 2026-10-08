@@ -173,6 +173,9 @@
   .conflito { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
   .conflito button { flex: 1 1 160px; }
   /* perguntas frequentes */
+  .etq-previa { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .etq-previa span { font-size: 12px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--linha); background: var(--navy); white-space: nowrap; }
+  .etq-previa span i { font-style: normal; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
   .faq-item { border: 1px solid var(--linha); border-radius: var(--raio); padding: 4px 12px 12px; margin-top: 10px; background: var(--navy); }
   .faq-item .faq-topo { display: flex; justify-content: space-between; align-items: center; }
   .faq-item textarea { min-height: 60px; }
@@ -480,6 +483,28 @@
           <p class="muted" id="dicaCrm" style="font-size:13px;margin-top:6px"></p>
         </div>
       </div>
+      <div class="card">
+        <h2>Etiquetas automáticas</h2>
+        <p class="muted">Enquanto conversa, a IA marca o cliente com etiquetas na LeadVox: de onde ele veio, o tipo de veículo que procura, como quer pagar e a faixa de entrada. A equipe vê tudo no card e filtra os contatos, sem abrir a conversa.</p>
+        <label class="opcao" style="margin-top:12px"><input type="checkbox" id="etqAtivo"><span>Marcar etiquetas automaticamente<small>As etiquetas que ainda não existem na sua conta são criadas na hora. As que a equipe marcou à mão nunca são apagadas.</small></span></label>
+        <div id="blocoEtq">
+          <label>O que a IA marca</label>
+          <div class="chips" id="etqGrupos">
+            <label><input type="checkbox" value="origem"> Origem do lead</label>
+            <label><input type="checkbox" value="interesse"> Tipo de veículo</label>
+            <label><input type="checkbox" value="pagamento"> Pagamento</label>
+            <label><input type="checkbox" value="entrada"> Faixa de entrada</label>
+            <label><input type="checkbox" value="qualificacao"> Troca, CNH e visita</label>
+          </div>
+          <div class="duas" id="blocoEtqFaixa">
+            <div><label for="etqAlta">Entrada alta a partir de</label><input id="etqAlta" inputmode="numeric" placeholder="R$ 5.000"></div>
+            <div><label for="etqBaixa">Entrada baixa até</label><input id="etqBaixa" inputmode="numeric" placeholder="R$ 1.000"></div>
+          </div>
+          <p class="muted" id="dicaEtq" style="font-size:13px;margin-top:6px"></p>
+          <div class="etq-previa" id="etqPrevia" aria-label="Etiquetas que a IA pode marcar"></div>
+          <p class="muted" style="font-size:13px;margin-top:10px">Origem: só quando o cliente chega por anúncio ou pelo site. Se ele mandar mensagem direto, o vendedor marca. A IA só troca as etiquetas dela (por exemplo, de Entrada baixa para Entrada alta).</p>
+        </div>
+      </div>
     </section>
 
     <!-- 7 Follow-up -->
@@ -602,8 +627,21 @@ const PADRAO = {
   distribuicao: { modo: 'departamento', vendedores: [], responsavelVendaConsignacao: null },
   lead: { enviarAutoCerto: false, codigoMidia: 12, interesse: 2, whatsappGerente: '' },
   followup: { primeiroMin: 10, segundoMin: 45, transferir: { quando: 'apos_primeiro', personalizadoMin: null } },
-  crm: { ativo: true, etapaInicialId: null }
+  crm: { ativo: true, etapaInicialId: null },
+  etiquetas: { ativo: true, grupos: ['origem', 'interesse', 'pagamento', 'entrada', 'qualificacao'], entradaAlta: 5000, entradaBaixa: 1000 }
 };
+
+// ── etiquetas: os MESMOS nomes que o motor usa (nó "ETQ Calcular") ──
+const ETQ = {
+  origem: { cor: '#8B5CF6', nomes: ['📍 Instagram', '📍 Facebook', '📍 Site', '📍 Anúncio'] },
+  interesse: { cor: '#3B82F6', moto: ['🏍️ Street', '🏍️ Trail', '🏍️ Crossover', '🏍️ Scooter', '🏍️ Esportiva', '🏍️ Custom', '🏍️ Off-road'],
+    carro: ['🚗 Hatch', '🚗 Sedan', '🚗 SUV', '🚗 Picape'] },
+  pagamento: { cor: '#06B6D4', nomes: ['💳 Financiamento', '💵 À vista'] },
+  entrada: { cor: '#22C55E', nomes: ['💰 Entrada alta', '💰 Entrada média', '💰 Entrada baixa', '💰 Sem entrada'] },
+  qualificacao: { cor: '#F59E0B', nomes: ['🔁 Tem troca', '🪪 Sem CNH', '📅 Visita agendada'] }
+};
+const reais = (n) => n ? 'R$ ' + Number(n).toLocaleString('pt-BR') : '';
+const digitos = (v) => { const n = parseInt(String(v || '').replace(/\D/g, ''), 10); return Number.isFinite(n) ? n : 0; };
 
 // ── dados do atendimento que a LeadVox manda para o plugin (só leitura) ──
 window.addEventListener('message', (ev) => {
@@ -842,6 +880,9 @@ function abrirApp() {
     LV.etapas.map(e => `<option value="${esc(e.id)}" ${String(e.id) === String(c.crm.etapaInicialId || '') ? 'selected' : ''}>${esc(e.nome)}</option>`).join('') +
     (c.crm.etapaInicialId && !LV.etapas.some(e => String(e.id) === String(c.crm.etapaInicialId)) ? `<option value="${esc(c.crm.etapaInicialId)}" selected>Etapa ID ${esc(c.crm.etapaInicialId)}</option>` : '');
   $('dicaCrm').textContent = LV.etapas.length ? '' : 'Não encontrei etapas no seu funil. Crie as etapas no CRM da LeadVox para os leads aparecerem lá.';
+  $('etqAtivo').checked = c.etiquetas.ativo === true;
+  document.querySelectorAll('#etqGrupos input').forEach(i => { i.checked = (c.etiquetas.grupos || []).includes(i.value); });
+  $('etqAlta').value = reais(c.etiquetas.entradaAlta || 5000); $('etqBaixa').value = reais(c.etiquetas.entradaBaixa || 1000);
   $('importVend').hidden = !LV.usuarios.length;
   $('importDeps').hidden = !LV.filas.length;
   irPara(0); atualizar(); mostrarDicaTicket(); renderLiga(); prepararEstoque();
@@ -1045,7 +1086,9 @@ function coletar() {
       whatsappGerente: $('gerente').value.replace(/\D/g, '') },
     followup: { primeiroMin: +$('fu1').value, segundoMin: +$('fu2').value,
       transferir: { quando, personalizadoMin: quando === 'personalizado' ? Math.round(+$('persN').value * +$('persU').value) : null } },
-    crm: { ativo: $('crmAtivo').checked, etapaInicialId: $('crmEtapa').value ? +$('crmEtapa').value : null }
+    crm: { ativo: $('crmAtivo').checked, etapaInicialId: $('crmEtapa').value ? +$('crmEtapa').value : null },
+    etiquetas: { ativo: $('etqAtivo').checked, grupos: [...document.querySelectorAll('#etqGrupos input:checked')].map(i => i.value),
+      entradaAlta: digitos($('etqAlta').value) || 5000, entradaBaixa: digitos($('etqBaixa').value) || 1000 }
   };
 }
 
@@ -1065,6 +1108,7 @@ function atualizar() {
   $('btAddFaq').disabled = document.querySelectorAll('[data-faq]').length >= 15;
   $('blocoGerente').hidden = !$('enviarAC').checked;
   $('blocoCrm').hidden = !$('crmAtivo').checked;
+  renderEtiquetas(c);
   $('textoDestino').textContent = (FONTE === 'autocerto' && c.lead.enviarAutoCerto)
     ? 'Quando o cliente estiver qualificado, a IA cadastra o lead no AutoCerto, avisa o gerente e passa o atendimento para a equipe.'
     : 'Quando o cliente estiver qualificado, a IA passa o atendimento para o departamento Comercial com um resumo da conversa.' + (FONTE !== 'autocerto' ? ' O envio para o AutoCerto só existe para lojas com estoque no AutoCerto.' : '');
@@ -1102,6 +1146,25 @@ function irPara(i) {
 $('btVoltar').addEventListener('click', () => irPara(passoAtual - 1));
 $('btProximo').addEventListener('click', () => irPara(passoAtual + 1));
 
+function renderEtiquetas(c) {
+  const e = c.etiquetas;
+  $('blocoEtq').hidden = !e.ativo;
+  $('blocoEtqFaixa').hidden = !e.grupos.includes('entrada');
+  const tipo = c.loja.tipo;
+  const lista = [];
+  e.grupos.forEach(g => {
+    const def = ETQ[g]; if (!def) return;
+    const nomes = g === 'interesse' ? (tipo === 'carro' ? def.carro : tipo === 'moto' ? def.moto : def.moto.concat(def.carro)) : def.nomes;
+    nomes.forEach(n => lista.push([n, def.cor]));
+  });
+  $('etqPrevia').innerHTML = lista.map(([n, cor]) => `<span><i style="background:${cor}"></i>${esc(n)}</span>`).join('');
+  const faixaRuim = e.grupos.includes('entrada') && e.entradaBaixa >= e.entradaAlta;
+  $('dicaEtq').style.color = faixaRuim ? 'var(--erro)' : '';
+  $('dicaEtq').textContent = !e.grupos.includes('entrada') ? '' : faixaRuim
+    ? 'A entrada baixa precisa ser menor que a entrada alta.'
+    : 'Entre ' + reais(e.entradaBaixa) + ' e ' + reais(e.entradaAlta) + ', a etiqueta é "Entrada média".';
+}
+['etqAlta', 'etqBaixa'].forEach(id => $(id).addEventListener('blur', () => { const n = digitos($(id).value); $(id).value = n ? reais(n) : ''; }));
 function montarResumo() {
   const c = coletar();
   const dias = DIAS.filter(([d]) => c.horario[d]).map(([d, n]) => n.slice(0, 3) + ' ' + c.horario[d].join('–')).join(', ') || 'nenhum dia marcado';
@@ -1123,6 +1186,7 @@ function montarResumo() {
     ['Atendentes', c.distribuicao.vendedores.length + ' cadastrado(s)'],
     ['Lead', c.lead.enviarAutoCerto ? 'Vai para o AutoCerto e avisa o gerente' : 'Transferido para o Comercial'],
     ['Funil (CRM)', c.crm.ativo ? 'Lança a oportunidade na etapa ' + ((LV.etapas.find(e => String(e.id) === String(c.crm.etapaInicialId)) || {}).nome || (c.crm.etapaInicialId ? 'ID ' + c.crm.etapaInicialId : 'inicial do funil')) : 'Não lança no funil'],
+    ['Etiquetas', c.etiquetas.ativo ? 'Marca ' + (c.etiquetas.grupos.map(g => ({ origem: 'origem', interesse: 'tipo de veículo', pagamento: 'pagamento', entrada: 'faixa de entrada (alta a partir de ' + reais(c.etiquetas.entradaAlta) + ', baixa até ' + reais(c.etiquetas.entradaBaixa) + ')', qualificacao: 'troca, CNH e visita' }[g])).join(', ') || 'nada') : 'Não marca etiquetas'],
     ['Follow-up', fmt(c.followup.primeiroMin) + ' e ' + fmt(c.followup.segundoMin) + ', transfere ' + tQ]
   ];
   $('resumo').innerHTML = linhas.map(([a, b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('');
